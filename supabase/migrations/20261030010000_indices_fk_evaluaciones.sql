@@ -1,0 +1,9 @@
+create index if not exists attempts_enrollment_fk_idx on public.attempts (tenant_id, client_id, enrollment_id);
+create index if not exists grades_enrollment_fk_idx on public.grades (tenant_id, client_id, enrollment_id);
+create index if not exists submissions_enrollment_fk_idx on public.submissions (tenant_id, client_id, enrollment_id);
+create index if not exists questions_assessment_fk_idx on public.questions (tenant_id, version_id, assessment_id);
+create index if not exists question_options_question_fk_idx on public.question_options (tenant_id, version_id, question_id);
+create index if not exists question_keys_question_fk_idx on public.question_keys (tenant_id, version_id, question_id);
+create index if not exists rubric_criteria_rubric_fk_idx on public.rubric_criteria (tenant_id, version_id, rubric_id);
+create index if not exists rubric_levels_criterion_fk_idx on public.rubric_levels (tenant_id, version_id, criterion_id);
+create index if not exists courses_latest_published_fk_idx on public.courses (tenant_id, id, latest_published_version_id);

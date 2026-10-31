@@ -1,0 +1,12 @@
+.env*
+!.env.example
+node_modules/
+dist/
+.npm-cache/
+*.tsbuildinfo
+
+.paso*/
+.bak-*/
+.bak-*
+.write_test
+.vercel
