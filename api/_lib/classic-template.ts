@@ -22,6 +22,30 @@ export interface CertificateData {
   template_snapshot: unknown
 }
 
+export interface Signer {
+  name: string
+  title: string
+  signature_path: string | null
+}
+
+export function parseSigners(v: unknown): Signer[] {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return []
+  const list = (v as Record<string, unknown>).signers
+  if (!Array.isArray(list)) return []
+  return list
+    .map((i) => asRecord(i))
+    .filter((i) => typeof i.name === 'string' && i.name !== '')
+    .slice(0, 2)
+    .map((i) => ({
+      name: String(i.name),
+      title: typeof i.title === 'string' ? i.title : '',
+      signature_path:
+        typeof i.signature_path === 'string' && i.signature_path !== ''
+          ? i.signature_path
+          : null,
+    }))
+}
+
 interface Issuer {
   kind: 'school' | 'client'
   name: string
@@ -80,6 +104,7 @@ async function fetchLogo(url: string | null | undefined): Promise<Buffer | null>
 export async function renderClassicCertificate(
   data: CertificateData,
   verifyUrl: string,
+  signatureImages: Record<string, Buffer> = {},
 ): Promise<Buffer> {
   const tpl = asRecord(data.template_snapshot)
   const primary = color(tpl.primary_color, '#1e3a8a')
@@ -89,6 +114,7 @@ export async function renderClassicCertificate(
       ? tpl.title
       : 'Certificado de aprobación'
   const issuers = parseIssuers(data.issuer_snapshot)
+  const signers = parseSigners(data.template_snapshot)
   const school = issuers.find((i) => i.kind === 'school')
 
   const [qrDataUrl, logo] = await Promise.all([
@@ -169,20 +195,31 @@ export async function renderClassicCertificate(
       justifyContent: 'space-between',
       alignItems: 'flex-end',
     },
-    sign: { width: 200, alignItems: 'center' },
+    signers: { flexDirection: 'row', gap: 16, alignItems: 'flex-end' },
+    sign: { width: 180, alignItems: 'center' },
+    signImage: { height: 46, width: 150, objectFit: 'contain', marginBottom: 2 },
+    signSpace: { height: 48 },
+    signTitle: {
+      fontFamily: 'Helvetica',
+      fontSize: 8.5,
+      color: '#475569',
+      textAlign: 'center',
+      marginTop: 1,
+    },
     signLine: {
-      width: 180,
+      width: 170,
       borderTopWidth: 1,
       borderTopColor: '#94a3b8',
       paddingTop: 4,
-      fontFamily: 'Helvetica',
+      fontFamily: 'Helvetica-Bold',
       fontSize: 10,
-      color: '#334155',
+      color: '#0f172a',
       textAlign: 'center',
     },
-    verify: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    qr: { width: 62, height: 62 },
-    verifyText: { fontFamily: 'Helvetica', fontSize: 8, color: '#475569' },
+    verify: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    verifyBox: { width: 150 },
+    qr: { width: 58, height: 58 },
+    verifyText: { fontFamily: 'Helvetica', fontSize: 7, color: '#475569' },
     code: { fontFamily: 'Helvetica-Bold', fontSize: 9.5, color: '#0f172a' },
   })
 
@@ -224,19 +261,33 @@ export async function renderClassicCertificate(
             { style: styles.footer },
             h(
               View,
-              { style: styles.sign },
-              h(
-                Text,
-                { style: styles.signLine },
-                data.instructor_name ?? 'Instructor',
-              ),
+              { style: styles.signers },
+              ...(signers.length > 0
+                ? signers
+                : [{ name: data.instructor_name ?? 'Instructor', title: '', signature_path: null }]
+              ).map((signer, index) => {
+                const image = signer.signature_path
+                  ? signatureImages[signer.signature_path]
+                  : undefined
+                return h(
+                  View,
+                  { key: index, style: styles.sign },
+                  image
+                    ? h(Image, { src: image, style: styles.signImage })
+                    : h(View, { style: styles.signSpace }),
+                  h(Text, { style: styles.signLine }, signer.name),
+                  signer.title
+                    ? h(Text, { style: styles.signTitle }, signer.title)
+                    : null,
+                )
+              }),
             ),
             h(
               View,
               { style: styles.verify },
               h(
                 View,
-                null,
+                { style: styles.verifyBox },
                 h(Text, { style: styles.verifyText }, 'Verifica la autenticidad en'),
                 h(Text, { style: styles.verifyText }, verifyUrl),
                 h(Text, { style: styles.code }, `Código: ${data.code}`),

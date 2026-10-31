@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import {
+  parseSigners,
   renderClassicCertificate,
   type CertificateData,
 } from './classic-template.js'
@@ -97,7 +98,19 @@ export async function handleRender(
   const path = `${cert.tenant_id}/${cert.code}.pdf`
 
   try {
-    const pdf = await renderClassicCertificate(cert, verifyUrl)
+    const signatureImages: Record<string, Buffer> = {}
+    for (const signer of parseSigners(cert.template_snapshot)) {
+      if (!signer.signature_path) continue
+      const { data: file } = await admin.storage
+        .from('signatures')
+        .download(signer.signature_path)
+      if (file) {
+        signatureImages[signer.signature_path] = Buffer.from(
+          await file.arrayBuffer(),
+        )
+      }
+    }
+    const pdf = await renderClassicCertificate(cert, verifyUrl, signatureImages)
     const { error: uploadError } = await admin.storage
       .from('certificates')
       .upload(path, pdf, { contentType: 'application/pdf', upsert: true })

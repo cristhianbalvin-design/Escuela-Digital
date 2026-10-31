@@ -35,6 +35,7 @@ import {
   StudentHomePage,
 } from '@/features/student'
 import {
+  SignersPage,
   StudentCertificatesPage,
   VerifyCertificatePage,
 } from '@/features/certificates'
@@ -311,7 +312,9 @@ function TenantView({ tenant }: { tenant: TenantLocation }) {
                           ? <StudentCoursesPage />
                           : role === 'student' && key === 'certificates'
                             ? <StudentCertificatesPage />
-                            : <PlaceholderPage role={role} name={key} />
+                            : (role === 'teacher' || role === 'admin') && key === 'certificates'
+                              ? <SignersPage />
+                              : <PlaceholderPage role={role} name={key} />
                 }
               />
             ))}

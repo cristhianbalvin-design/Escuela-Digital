@@ -279,6 +279,47 @@ export type Database = {
           },
         ]
       }
+      certificate_signers: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          full_name: string
+          id: string
+          signature_path: string | null
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          full_name: string
+          id?: string
+          signature_path?: string | null
+          tenant_id: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          full_name?: string
+          id?: string
+          signature_path?: string | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certificate_signers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       certificates: {
         Row: {
           client_id: string
@@ -1125,6 +1166,7 @@ export type Database = {
       }
       offerings: {
         Row: {
+          certificate_signer_ids: string[]
           certificate_template_id: string | null
           client_id: string
           code: string
@@ -1150,6 +1192,7 @@ export type Database = {
           version_id: string
         }
         Insert: {
+          certificate_signer_ids?: string[]
           certificate_template_id?: string | null
           client_id: string
           code: string
@@ -1175,6 +1218,7 @@ export type Database = {
           version_id: string
         }
         Update: {
+          certificate_signer_ids?: string[]
           certificate_template_id?: string | null
           client_id?: string
           code?: string

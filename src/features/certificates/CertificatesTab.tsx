@@ -4,6 +4,7 @@ import { useOutline } from '@/features/offerings/api'
 import { useOfferingCertificates } from './certificates-api'
 import { CertificateRuleForm } from './CertificateRuleForm'
 import { CertificateRoster } from './CertificateRoster'
+import { SignersPicker } from './SignersPicker'
 
 export function CertificatesTab({ offeringId }: { offeringId: string }) {
   const { t } = useTranslation()
@@ -24,6 +25,7 @@ export function CertificatesTab({ offeringId }: { offeringId: string }) {
 
   return (
     <div className="grid gap-6">
+      <SignersPicker offeringId={offeringId} />
       {outline.isError && <p role="alert">{outline.error.message}</p>}
       {outline.isPending
         ? <Skeleton className="h-40" />
