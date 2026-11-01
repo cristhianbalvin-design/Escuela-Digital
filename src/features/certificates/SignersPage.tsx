@@ -7,6 +7,7 @@ import {
   useCreateSigner, useDeleteSigner, useRemoveSignature, useSigners,
   useUpdateSigner, useUploadSignature, type Signer,
 } from './signers-api'
+import { BrandCard } from './BrandCard'
 import { SignerCard } from './SignerCard'
 import { SignerDeleteDialog } from './SignerDeleteDialog'
 import { SignerFormDialog } from './SignerFormDialog'
@@ -89,6 +90,7 @@ export function SignersPage() {
         </div>
       )}
       <p className="text-sm text-text-muted">{t('certificates.signers.editionHint')}</p>
+      <BrandCard />
       {editing !== undefined && (
         <SignerFormDialog signer={editing} pending={create.isPending || update.isPending}
           error={dialogError} onClose={() => setEditing(undefined)} onSubmit={save} />

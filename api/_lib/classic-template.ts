@@ -50,6 +50,7 @@ interface Issuer {
   kind: 'school' | 'client'
   name: string
   logo_url?: string | null
+  logo_path?: string | null
 }
 
 const MONTHS = [
@@ -83,6 +84,7 @@ function parseIssuers(v: unknown): Issuer[] {
       kind: i.kind === 'client' ? 'client' : 'school',
       name: String(i.name),
       logo_url: typeof i.logo_url === 'string' ? i.logo_url : null,
+      logo_path: typeof i.logo_path === 'string' && i.logo_path !== '' ? i.logo_path : null,
     }))
 }
 
@@ -105,6 +107,7 @@ export async function renderClassicCertificate(
   data: CertificateData,
   verifyUrl: string,
   signatureImages: Record<string, Buffer> = {},
+  logoImage: Buffer | null = null,
 ): Promise<Buffer> {
   const tpl = asRecord(data.template_snapshot)
   const primary = color(tpl.primary_color, '#1e3a8a')
@@ -123,7 +126,7 @@ export async function renderClassicCertificate(
       width: 240,
       errorCorrectionLevel: 'M',
     }),
-    fetchLogo(school?.logo_url),
+    logoImage ? Promise.resolve(logoImage) : fetchLogo(school?.logo_url),
   ])
 
   const styles = StyleSheet.create({

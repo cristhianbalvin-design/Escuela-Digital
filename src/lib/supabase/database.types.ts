@@ -1753,6 +1753,9 @@ export type Database = {
       }
       tenants: {
         Row: {
+          certificate_logo_path: string | null
+          certificate_primary_color: string | null
+          certificate_secondary_color: string | null
           created_at: string
           id: string
           language: string
@@ -1768,6 +1771,9 @@ export type Database = {
           welcome_text: string | null
         }
         Insert: {
+          certificate_logo_path?: string | null
+          certificate_primary_color?: string | null
+          certificate_secondary_color?: string | null
           created_at?: string
           id?: string
           language?: string
@@ -1783,6 +1789,9 @@ export type Database = {
           welcome_text?: string | null
         }
         Update: {
+          certificate_logo_path?: string | null
+          certificate_primary_color?: string | null
+          certificate_secondary_color?: string | null
           created_at?: string
           id?: string
           language?: string

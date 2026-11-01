@@ -110,7 +110,24 @@ export async function handleRender(
         )
       }
     }
-    const pdf = await renderClassicCertificate(cert, verifyUrl, signatureImages)
+    let logoImage: Buffer | null = null
+    const issuers = Array.isArray(cert.issuer_snapshot) ? cert.issuer_snapshot : []
+    const school = issuers.find(
+      (i): i is { kind: string; logo_path?: unknown } =>
+        !!i && typeof i === 'object' && (i as { kind?: unknown }).kind === 'school',
+    )
+    if (school && typeof school.logo_path === 'string' && school.logo_path !== '') {
+      const { data: logoFile } = await admin.storage
+        .from('branding')
+        .download(school.logo_path)
+      if (logoFile) logoImage = Buffer.from(await logoFile.arrayBuffer())
+    }
+    const pdf = await renderClassicCertificate(
+      cert,
+      verifyUrl,
+      signatureImages,
+      logoImage,
+    )
     const { error: uploadError } = await admin.storage
       .from('certificates')
       .upload(path, pdf, { contentType: 'application/pdf', upsert: true })
