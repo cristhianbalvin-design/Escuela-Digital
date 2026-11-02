@@ -10,9 +10,9 @@ export const courseSchema = z.object({
   slug: z.string()
     .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Usa letras minúsculas, números y guiones')
     .refine((value) => !reserved.has(value), 'Este identificador está reservado'),
-  category: z.string(),
-  level: z.string(),
-  language: z.string().trim().min(1, 'Ingresa un idioma'),
+  category: z.array(z.string()),
+  level: z.array(z.string()),
+  language: z.array(z.string()).min(1, 'Elige al menos un idioma'),
   structure: z.enum(['empty', 'weekly']),
   weeks: z.coerce.number<number>().int().min(1).max(52),
 })

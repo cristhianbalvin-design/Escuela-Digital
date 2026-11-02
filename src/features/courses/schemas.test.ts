@@ -4,8 +4,8 @@ import { courseSchema, readableError, slugify } from './schemas'
 describe('courseSchema', () => {
   it('valida identificadores y cantidad de semanas', () => {
     const base = {
-      title: 'Curso', slug: 'curso', category: '', level: '',
-      language: 'es', structure: 'weekly', weeks: 4,
+      title: 'Curso', slug: 'curso', category: [], level: [],
+      language: ['es'], structure: 'weekly', weeks: 4,
     }
     expect(courseSchema.safeParse(base).success).toBe(true)
     expect(courseSchema.safeParse({ ...base, slug: 'admin' }).success).toBe(false)

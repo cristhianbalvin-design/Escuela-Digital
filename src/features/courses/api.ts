@@ -1,3 +1,4 @@
+import { joinValues } from './course-options'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Database, Json } from '@/lib/supabase/database.types'
@@ -104,9 +105,9 @@ export function useCreateCourse(tenantId: string | undefined) {
         p_tenant_id: tenantId,
         p_slug: values.slug,
         p_title: values.title,
-        p_category: values.category.trim() || null,
-        p_level: values.level.trim() || null,
-        p_language: values.language,
+        p_category: joinValues(values.category),
+        p_level: joinValues(values.level),
+        p_language: joinValues(values.language) ?? 'es',
       })
       check(error)
       if (!courseId) throw new Error('No se recibió el curso creado')

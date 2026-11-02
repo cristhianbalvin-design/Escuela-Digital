@@ -3,11 +3,16 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { Controller } from 'react-hook-form'
 import { Button, Card, EmptyState, Input } from '@/components/ui'
 import { useTenantAccess } from '@/features/tenants'
 import { supabase } from '@/lib/supabase'
 import { courseSchema, readableError, slugify, type CourseValues } from './schemas'
 import { useCreateCourse } from './api'
+import {
+  CATEGORY_OPTIONS, LANGUAGE_OPTIONS, LEVEL_OPTIONS, languageLabel,
+} from './course-options'
+import { MultiCheckGroup } from './MultiCheckGroup'
 
 export function CreateCoursePage() {
   const { search } = useLocation()
@@ -20,7 +25,7 @@ export function CreateCoursePage() {
   const form = useForm<CourseValues>({
     resolver: zodResolver(courseSchema),
     defaultValues: {
-      title: '', slug: '', category: '', level: '', language: 'es',
+      title: '', slug: '', category: [], level: [], language: ['es'],
       structure: 'empty', weeks: 4,
     },
   })
@@ -67,11 +72,22 @@ export function CreateCoursePage() {
               <Input label={t('teacherCourses.slug')}
                 error={form.formState.errors.slug?.message}
                 {...form.register('slug', { onChange: () => setSlugEdited(true) })} />
-              <Input label={t('teacherCourses.category')} {...form.register('category')} />
-              <Input label={t('teacherCourses.level')} {...form.register('level')} />
-              <Input label={t('teacherCourses.language')}
-                error={form.formState.errors.language?.message}
-                {...form.register('language')} />
+              <Controller control={form.control} name="category" render={({ field }) => (
+                <MultiCheckGroup legend={t('teacherCourses.category')}
+                  options={CATEGORY_OPTIONS.map((item) => ({ value: item, label: item }))}
+                  value={field.value} onChange={field.onChange}
+                  customLabel="Otra categoría" customAdd="Agregar" />
+              )} />
+              <Controller control={form.control} name="level" render={({ field }) => (
+                <MultiCheckGroup legend={t('teacherCourses.level')}
+                  options={LEVEL_OPTIONS.map((item) => ({ value: item, label: item }))}
+                  value={field.value} onChange={field.onChange} />
+              )} />
+              <Controller control={form.control} name="language" render={({ field }) => (
+                <MultiCheckGroup legend={t('teacherCourses.language')}
+                  options={LANGUAGE_OPTIONS} value={field.value} onChange={field.onChange}
+                  error={form.formState.errors.language?.message} />
+              )} />
             </>
           )}
           {step === 2 && (
@@ -97,6 +113,9 @@ export function CreateCoursePage() {
               <h2 className="font-bold">{t('teacherCourses.summary')}</h2>
               <p>{values.title}</p>
               <p>{values.slug}</p>
+              {values.category.length > 0 && <p>{values.category.join(', ')}</p>}
+              {values.level.length > 0 && <p>{values.level.join(', ')}</p>}
+              <p>{values.language.map(languageLabel).join(', ')}</p>
               <p>{values.structure === 'weekly'
                 ? t('teacherCourses.weeklyCount', { count: Number(values.weeks) })
                 : t('teacherCourses.emptyStructure')}</p>
