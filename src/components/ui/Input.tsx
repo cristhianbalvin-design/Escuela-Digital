@@ -13,7 +13,7 @@ export const Input = forwardRef<HTMLInputElement, Props>(function Input(
   const { t } = useTranslation()
   const inputId = id ?? label.toLowerCase().replace(/\s+/g, '-')
   return (
-    <div className="grid gap-1.5">
+    <div className="grid min-w-0 gap-1.5">
       <label htmlFor={inputId} className="text-sm font-semibold">
         {label}
       </label>
@@ -23,7 +23,7 @@ export const Input = forwardRef<HTMLInputElement, Props>(function Input(
         aria-invalid={!!error}
         aria-describedby={error ? `${inputId}-error` : undefined}
         className={cn(
-          'min-h-11 rounded-control border border-border bg-surface px-3 text-text placeholder:text-text-muted hover:border-brand focus:border-brand disabled:opacity-50',
+          'min-h-11 w-full min-w-0 rounded-control border border-border bg-surface px-3 text-text placeholder:text-text-muted hover:border-brand focus:border-brand disabled:opacity-50',
           error && 'border-error',
           className,
         )}
