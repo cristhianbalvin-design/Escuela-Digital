@@ -22,9 +22,9 @@ async function postChunk(offeringId: string, rows: PreviewRow[], token: string) 
   })
   const body = await response.json().catch(() => null) as { results?: ImportResult[]; error?: string } | null
   if (!response.ok || !body?.results) {
-    throw new Error(response.status === 403
-      ? 'No tienes permiso para importar en esta edición.'
-      : 'El servidor no pudo procesar el lote. Intenta de nuevo.')
+    if (response.status === 403) throw new Error('No tienes permiso para importar en esta edición.')
+    const detail = body?.error ? `${response.status}: ${body.error}` : String(response.status)
+    throw new Error(`El servidor no pudo procesar el lote (${detail}). Intenta de nuevo.`)
   }
   return body.results
 }
