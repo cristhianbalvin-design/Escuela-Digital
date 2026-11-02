@@ -70,7 +70,7 @@ export function DimensionsCard({ offeringId }: { offeringId: string }) {
       {rows.length === 0 && <p>{t('dimensions.empty')}</p>}
       <ul className="grid gap-3">
         {rows.map((row, index) => (
-          <li key={row.key} className="grid gap-2 sm:grid-cols-[1fr_8rem_auto] sm:items-end">
+          <li key={row.key} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,8rem)_auto] sm:items-end">
             <Input id={`dim-name-${row.key}`} label={t('dimensions.name')} value={row.name}
               maxLength={80} onChange={(event) => patch(row.key, { name: event.target.value })}
               error={touched && (row.name.trim().length < 1) ? t('dimensions.nameError') : undefined} />

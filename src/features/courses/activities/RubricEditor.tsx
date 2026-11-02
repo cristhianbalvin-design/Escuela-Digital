@@ -31,7 +31,11 @@ function CriterionFields({ index, control, register, errors, editable, canRemove
         disabled={!editable} error={criterionErrors?.title?.message}
         {...register(`criteria.${index}.title`)} />
       {levels.fields.map((level, li) => (
-        <div key={level.id} className="grid gap-2 lg:grid-cols-[1fr_2fr_8rem_auto] lg:items-end">
+        <div key={level.id} className={`grid gap-2 lg:items-end ${
+          editable && levels.fields.length > 1
+            ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,7rem)_auto]'
+            : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,7rem)]'
+        }`}>
           <Input id={`rb-c-${index}-l-${li}`} label={t('activitiesAuthoring.levelLabel')}
             disabled={!editable} error={criterionErrors?.levels?.[li]?.label?.message}
             {...register(`criteria.${index}.levels.${li}.label`)} />
