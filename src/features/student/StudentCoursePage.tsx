@@ -9,6 +9,7 @@ import {
   studentErrorKey, useStudentCourses, useStudentOutline, useStudentProgress,
 } from './api'
 import { formatUnlockDate, nextLesson, type OutlineModule } from './utils'
+import { MyAttendancePanel } from './MyAttendancePanel'
 import { MyGradesPanel } from './MyGradesPanel'
 
 export function lockedReason(
@@ -96,6 +97,7 @@ export function StudentCoursePage() {
       ) : (
         <div className="grid gap-3">
           <MyGradesPanel enrollmentId={course.enrollment.id} />
+          <MyAttendancePanel enrollmentId={course.enrollment.id} />
           <h2 className="text-xl font-bold">{t('student.content')}</h2>
           {outline.data.map((module) => (
             <details key={module.id} className="rounded-card border border-border bg-surface p-4">
