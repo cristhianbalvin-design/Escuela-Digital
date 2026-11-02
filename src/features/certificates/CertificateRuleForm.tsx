@@ -12,6 +12,7 @@ import {
 const schema = z.object({
   min_progress_pct: z.number().min(0).max(100),
   min_final_grade: z.union([z.number().min(0).max(20), z.nan()]),
+  min_attendance_pct: z.union([z.number().min(0).max(100), z.nan()]),
   auto_issue: z.boolean(),
   required_assessments: z.array(z.string()),
 })
@@ -22,6 +23,7 @@ function valuesOf(rules: CompletionRules): Values {
   return {
     min_progress_pct: rules.min_progress_pct ?? 100,
     min_final_grade: rules.min_final_grade ?? Number.NaN,
+    min_attendance_pct: rules.min_attendance_pct ?? Number.NaN,
     auto_issue: rules.auto_issue ?? false,
     required_assessments: rules.required_assessments ?? [],
   }
@@ -72,6 +74,10 @@ export function CertificateRuleForm({
           label={t('certificates.minGrade')}
           error={formState.errors.min_final_grade ? t('certificates.invalidGrade') : undefined}
           {...register('min_final_grade', { valueAsNumber: true })} />
+        <Input id="cert-min-attendance" type="number" min="0" max="100" step="1"
+          label={t('certificates.minAttendance')}
+          error={formState.errors.min_attendance_pct ? t('certificates.invalidProgress') : undefined}
+          {...register('min_attendance_pct', { valueAsNumber: true })} />
         <label className="flex min-h-11 items-center gap-3 lg:col-span-2">
           <input type="checkbox" className="size-5 accent-brand" {...register('auto_issue')} />
           <span>{t('certificates.autoIssue')}</span>

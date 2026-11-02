@@ -2,7 +2,7 @@ import type { Json } from '@/lib/supabase/database.types'
 
 export type CompletionUnmet = {
   code: 'enrollment_status' | 'min_progress_pct' | 'min_final_grade' |
-    'required_assessment' | 'enrollment_missing'
+    'min_attendance_pct' | 'required_assessment' | 'enrollment_missing'
   required?: number | string
   actual?: number | string
   title?: string
@@ -11,6 +11,7 @@ export type CompletionUnmet = {
 export type CompletionRules = {
   min_progress_pct?: number
   min_final_grade?: number
+  min_attendance_pct?: number
   auto_issue?: boolean
   required_assessments?: string[]
 }
@@ -64,16 +65,18 @@ function rulesFrom(value: unknown): CompletionRules {
     : undefined
   const progress = num(row?.min_progress_pct)
   const grade = num(row?.min_final_grade)
+  const attendance = num(row?.min_attendance_pct)
   return {
     ...(progress !== null ? { min_progress_pct: progress } : {}),
     ...(grade !== null ? { min_final_grade: grade } : {}),
+    ...(attendance !== null ? { min_attendance_pct: attendance } : {}),
     ...(typeof row?.auto_issue === 'boolean' ? { auto_issue: row.auto_issue } : {}),
     ...(required ? { required_assessments: required } : {}),
   }
 }
 
 const UNMET_CODES = new Set<CompletionUnmet['code']>([
-  'enrollment_status', 'min_progress_pct', 'min_final_grade',
+  'enrollment_status', 'min_progress_pct', 'min_final_grade', 'min_attendance_pct',
   'required_assessment', 'enrollment_missing',
 ])
 
@@ -151,6 +154,7 @@ export function unmetMessageKeys(unmet: CompletionUnmet[]): string[] {
       case 'enrollment_status': return 'certificates.missing.enrollmentStatus'
       case 'min_progress_pct': return 'certificates.missing.progress'
       case 'min_final_grade': return 'certificates.missing.grade'
+      case 'min_attendance_pct': return 'certificates.missing.attendance'
       case 'required_assessment': return 'certificates.missing.assessment'
       case 'enrollment_missing': return 'certificates.missing.enrollment'
     }
@@ -178,6 +182,7 @@ export function assessmentsFromOutline(value: unknown): { id: string; title: str
 export function rulesToSave(values: {
   min_progress_pct: number
   min_final_grade: number
+  min_attendance_pct?: number
   auto_issue: boolean
   required_assessments: string[]
 }): CompletionRules {
@@ -185,6 +190,9 @@ export function rulesToSave(values: {
     min_progress_pct: values.min_progress_pct,
     ...(Number.isFinite(values.min_final_grade) && values.min_final_grade > 0
       ? { min_final_grade: values.min_final_grade } : {}),
+    ...(values.min_attendance_pct !== undefined && Number.isFinite(values.min_attendance_pct)
+      && values.min_attendance_pct > 0
+      ? { min_attendance_pct: values.min_attendance_pct } : {}),
     auto_issue: values.auto_issue,
     ...(values.required_assessments.length > 0
       ? { required_assessments: values.required_assessments } : {}),

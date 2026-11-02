@@ -1853,6 +1853,27 @@ export type Database = {
         Args: { p_offering_id: string; p_user_id: string }
         Returns: string
       }
+      close_attendance_session: { Args: { p_session_id: string }; Returns: Json }
+      create_attendance_session: {
+        Args: { p_date: string; p_offering_id: string; p_title: string }
+        Returns: string
+      }
+      delete_attendance_session: { Args: { p_session_id: string }; Returns: undefined }
+      get_attendance_sheet: { Args: { p_session_id: string }; Returns: Json }
+      get_attendance_summary: { Args: { p_offering_id: string }; Returns: Json }
+      get_my_attendance: { Args: { p_enrollment_id: string }; Returns: Json }
+      reopen_attendance_session: {
+        Args: { p_reason: string; p_session_id: string }
+        Returns: undefined
+      }
+      set_attendance: {
+        Args: { p_marks: Json; p_session_id: string }
+        Returns: number
+      }
+      update_attendance_session: {
+        Args: { p_date: string; p_session_id: string; p_title: string }
+        Returns: undefined
+      }
       evaluate_completion: { Args: { p_enrollment_id: string }; Returns: Json }
       finalize_final_grades: {
         Args: { p_offering_id: string }
@@ -2024,6 +2045,8 @@ export type Database = {
     }
     Enums: {
       attempt_status: "in_progress" | "submitted" | "graded"
+      attendance_session_status: "open" | "closed"
+      attendance_status: "present" | "late" | "absent" | "excused"
       certificate_event_type:
         | "created"
         | "rendered"
@@ -2192,6 +2215,8 @@ export const Constants = {
   public: {
     Enums: {
       attempt_status: ["in_progress", "submitted", "graded"],
+      attendance_session_status: ["open", "closed"],
+      attendance_status: ["present", "late", "absent", "excused"],
       certificate_event_type: [
         "created",
         "rendered",
