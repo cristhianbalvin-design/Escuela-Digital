@@ -1,5 +1,5 @@
 import { handleImport } from '../_lib/import-participants.js'
-import { readEnv } from '../_lib/render-certificate.js'
+import { readEnv } from '../_lib/env.js'
 
 export const config = { maxDuration: 60 }
 
