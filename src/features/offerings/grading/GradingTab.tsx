@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { GradingQueue } from './GradingQueue'
+import { DimensionsCard } from './DimensionsCard'
 import { GradebookPanel } from './GradebookPanel'
 
 export function GradingTab({ offeringId }: { offeringId: string }) {
@@ -10,6 +11,7 @@ export function GradingTab({ offeringId }: { offeringId: string }) {
         <h2 id="grading-queue-heading" className="text-xl font-bold">{t('grading.queue')}</h2>
         <GradingQueue offeringId={offeringId} />
       </section>
+      <DimensionsCard offeringId={offeringId} />
       <section className="grid gap-3" aria-labelledby="grading-book-heading">
         <h2 id="grading-book-heading" className="text-xl font-bold">{t('grading.gradebook')}</h2>
         <GradebookPanel offeringId={offeringId} />

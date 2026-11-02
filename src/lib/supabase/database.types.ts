@@ -1893,6 +1893,11 @@ export type Database = {
       get_gradebook: { Args: { p_offering_id: string }; Returns: Json }
       get_grading_queue: { Args: { p_offering_id: string }; Returns: Json }
       get_my_grades: { Args: { p_enrollment_id: string }; Returns: Json }
+      get_offering_dimensions: { Args: { p_offering_id: string }; Returns: Json }
+      save_offering_dimensions: {
+        Args: { p_offering_id: string; p_dimensions: Json }
+        Returns: Json
+      }
       get_offering_certificates: {
         Args: { p_offering_id: string }
         Returns: Json

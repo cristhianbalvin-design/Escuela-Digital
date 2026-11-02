@@ -27,10 +27,11 @@ export function GradebookPanel({ offeringId }: { offeringId: string }) {
   if (query.isPending) return <Skeleton className="h-48" />
   if (query.isError) return <Card><p role="alert">{query.error.message}</p>
     <Button onClick={() => void query.refetch()}>{t('retry')}</Button></Card>
-  const { items, students } = query.data
+  const { items, students, mode } = query.data
   const totalWeight = items.reduce((sum, item) => sum + (item.weight > 0 ? item.weight : 0), 0)
   const weightPercent = (weight: number, total: number) =>
     weight > 0 && total > 0 ? Math.round((weight / total) * 100) : 0
+  const weightsOff = mode === 'dimensions' && Math.abs(totalWeight - 100) > 0.005
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap gap-2">
@@ -38,6 +39,9 @@ export function GradebookPanel({ offeringId }: { offeringId: string }) {
           gradebookToCsv(items, students))}>{t('grading.exportCsv')}</Button>
         <Button onClick={() => setConfirm(true)}>{t('grading.finalize')}</Button>
       </div>
+      {weightsOff && <p role="alert" className="font-semibold text-amber-700">
+        {t('dimensions.gradebookWeights', { value: Math.round(totalWeight * 100) / 100 })}</p>}
+      {mode === 'dimensions' && <p className="text-sm text-text-muted">{t('dimensions.gradebookHint')}</p>}
       {items.length === 0 || students.length === 0 ? <EmptyState title={t('grading.emptyGradebook')} description="" /> :
         <div className="overflow-x-auto">
           <table className="min-w-full border-collapse text-left">
@@ -50,6 +54,13 @@ export function GradebookPanel({ offeringId }: { offeringId: string }) {
               <th scope="row">{student.full_name || student.email}</th><td>{student.email}</td>
               {items.map((item) => {
                 const grade = student.grades[item.id]
+                if (item.source_type === 'attendance') {
+                  return <td key={item.id}
+                    title={t('dimensions.attendanceAuto')}>
+                    {formatGrade(grade ? (grade.score / grade.max_score) * 20 : null)}
+                    <span className="ml-1 text-xs text-text-muted">{t('dimensions.auto')}</span>
+                  </td>
+                }
                 return <td key={item.id}>
                   <Button variant="ghost" aria-label={t('grading.editCell', {
                     student: student.full_name || student.email, item: item.title,

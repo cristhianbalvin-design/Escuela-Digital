@@ -55,7 +55,7 @@ export type AttemptForGrading = {
 export type GradeItem = {
   id: string
   title: string
-  source_type: 'assessment' | 'assignment' | 'manual'
+  source_type: 'assessment' | 'assignment' | 'manual' | 'attendance'
   source_id: string
   weight: number
   max_score: number
@@ -83,9 +83,16 @@ export type GradebookStudent = {
     adjusted: boolean
     adjusted_reason: string | null
   }>
-  summary: { items: GradeSummaryItem[]; partial: number | null; final: number | null }
+  summary: {
+    items: GradeSummaryItem[]; partial: number | null; final: number | null
+    weights_total?: number | null
+  }
 }
-export type Gradebook = { items: GradeItem[]; students: GradebookStudent[] }
+export type Gradebook = {
+  mode: 'items' | 'dimensions'
+  items: GradeItem[]
+  students: GradebookStudent[]
+}
 export type RubricScoreInput = { criterion_id: string; level_id: string; comment?: string }
 
 function client() {
@@ -147,7 +154,8 @@ export function parseGradebook(value: unknown): Gradebook {
     const source = row.source_type
     return [{
       id: row.id, title: string(row.title),
-      source_type: source === 'assessment' || source === 'assignment' ? source : 'manual',
+      source_type: source === 'assessment' || source === 'assignment' || source === 'attendance'
+        ? source : 'manual',
       source_id: string(row.source_id), weight: number(row.weight),
       max_score: number(row.max_score),
     }]
@@ -172,7 +180,8 @@ export function parseGradebook(value: unknown): Gradebook {
       const source = item.source_type
       return [{
         grade_item_id: item.grade_item_id, title: string(item.title),
-        source_type: source === 'assessment' || source === 'assignment' ? source : 'manual',
+        source_type: source === 'assessment' || source === 'assignment' || source === 'attendance'
+          ? source : 'manual',
         weight: number(item.weight), score: nullableNumber(item.score),
         max_score: nullableNumber(item.max_score), hidden: item.hidden === true,
         normalized: nullableNumber(item.normalized),
@@ -185,10 +194,11 @@ export function parseGradebook(value: unknown): Gradebook {
       summary: {
         items: summaryItems, partial: nullableNumber(summary?.partial),
         final: nullableNumber(summary?.final),
+        weights_total: nullableNumber(summary?.weights_total),
       },
     }]
   })
-  return { items, students }
+  return { mode: root?.mode === 'dimensions' ? 'dimensions' : 'items', items, students }
 }
 
 export function useGradingQueue(offeringId: string) {
