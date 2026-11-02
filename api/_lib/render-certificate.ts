@@ -55,7 +55,7 @@ export async function handleRender(
   const auth = request.headers.get('authorization') ?? ''
   if (!/^Bearer\s+\S+/i.test(auth)) return json({ error: 'unauthorized' }, 401)
 
-  let certificateId = ''
+  let certificateId: string
   try {
     const body = (await request.json()) as { certificate_id?: unknown }
     certificateId =
@@ -93,7 +93,17 @@ export async function handleRender(
   const admin: SupabaseClient = createClient(env.url, env.serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
-  const origin = new URL(request.url).origin
+  let origin = new URL(request.url).origin
+  const { data: primary } = await admin
+    .from('tenant_domains')
+    .select('host')
+    .eq('tenant_id', cert.tenant_id)
+    .eq('is_primary', true)
+    .eq('verified', true)
+    .maybeSingle()
+  if (primary && typeof primary.host === 'string' && primary.host !== '') {
+    origin = `https://${primary.host}`
+  }
   const verifyUrl = `${origin}/c/${cert.code}`
   const path = `${cert.tenant_id}/${cert.code}.pdf`
 
