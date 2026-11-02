@@ -17,7 +17,10 @@ async function postChunk(offeringId: string, rows: PreviewRow[], token: string) 
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       offering_id: offeringId,
-      rows: rows.map((row) => ({ email: row.email, full_name: row.full_name, scores: row.scores })),
+      rows: rows.map((row) => ({
+        email: row.email, full_name: row.full_name, scores: row.scores,
+        phone: row.phone, job_title: row.job_title, company: row.company,
+      })),
     }),
   })
   const body = await response.json().catch(() => null) as { results?: ImportResult[]; error?: string } | null

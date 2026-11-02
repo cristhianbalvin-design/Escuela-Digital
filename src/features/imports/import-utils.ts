@@ -4,6 +4,9 @@ export type PreviewRow = {
   line: number
   email: string
   full_name: string
+  phone: string
+  job_title: string
+  company: string
   scores: Record<string, number>
   errors: string[]
 }
@@ -25,6 +28,9 @@ export function normalizeHeader(value: string): string {
 }
 
 const EMAIL_HEADERS = new Set(['correo', 'correo electronico', 'email', 'e mail', 'mail'])
+const PHONE_HEADERS = new Set(['celular', 'telefono', 'movil', 'phone', 'whatsapp', 'numero de celular'])
+const JOB_HEADERS = new Set(['cargo', 'cargo actual', 'puesto', 'job title'])
+const COMPANY_HEADERS = new Set(['empresa', 'empresa donde labora', 'organizacion', 'compania', 'company'])
 const NAME_HEADERS = new Set(['nombre', 'nombres', 'nombre completo', 'participante', 'alumno', 'name', 'full name'])
 
 /** Lee CSV con comillas; detecta coma o punto y coma como separador. */
@@ -71,10 +77,14 @@ export function buildPreview(table: string[][], dimensions: ImportDimension[]): 
   const emailIndex = normalized.findIndex((h) => EMAIL_HEADERS.has(h))
   if (emailIndex < 0) return { rows: [], ignoredColumns: [], problem: 'noEmail' }
   const nameIndex = normalized.findIndex((h) => NAME_HEADERS.has(h))
+  const phoneIndex = normalized.findIndex((h) => PHONE_HEADERS.has(h))
+  const jobIndex = normalized.findIndex((h) => JOB_HEADERS.has(h))
+  const companyIndex = normalized.findIndex((h) => COMPANY_HEADERS.has(h))
+  const known = new Set([emailIndex, nameIndex, phoneIndex, jobIndex, companyIndex])
   const dimensionColumns = new Map<number, ImportDimension>()
   const ignored: string[] = []
   normalized.forEach((h, index) => {
-    if (index === emailIndex || index === nameIndex || h === '') return
+    if (known.has(index) || h === '') return
     const match = dimensions.find((d) => normalizeHeader(d.name) === h)
     if (match && match.kind === 'manual') dimensionColumns.set(index, match)
     else ignored.push(header[index]!)
@@ -85,6 +95,9 @@ export function buildPreview(table: string[][], dimensions: ImportDimension[]): 
     const row: PreviewRow = {
       line: offset + 2, email,
       full_name: nameIndex >= 0 ? (cells[nameIndex] ?? '').trim() : '',
+      phone: phoneIndex >= 0 ? (cells[phoneIndex] ?? '').trim() : '',
+      job_title: jobIndex >= 0 ? (cells[jobIndex] ?? '').trim() : '',
+      company: companyIndex >= 0 ? (cells[companyIndex] ?? '').trim() : '',
       scores: {}, errors: [],
     }
     if (!EMAIL.test(email)) row.errors.push('email')
@@ -103,8 +116,9 @@ export function buildPreview(table: string[][], dimensions: ImportDimension[]): 
 export function buildTemplate(dimensions: ImportDimension[]): string {
   const manual = dimensions.filter((d) => d.kind === 'manual')
   const quote = (v: string) => (/[",;\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
-  const header = ['correo', 'nombre', ...manual.map((d) => quote(d.name))]
-  const example = ['ana.perez@ejemplo.com', 'Ana Pérez', ...manual.map(() => '15')]
+  const header = ['correo', 'nombre', 'celular', 'cargo', 'empresa', ...manual.map((d) => quote(d.name))]
+  const example = ['ana.perez@ejemplo.com', 'Ana Pérez', '999111222', 'Analista de datos', 'Empresa SAC',
+    ...manual.map(() => '15')]
   return `${header.join(',')}\n${example.join(',')}\n`
 }
 

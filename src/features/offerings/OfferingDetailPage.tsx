@@ -17,7 +17,7 @@ import { InvitationPanel } from './InvitationPanel'
 import { GradingTab } from './grading/GradingTab'
 import { CertificatesTab } from '@/features/certificates'
 import { AttendanceTab } from '@/features/attendance'
-import { ImportPanel } from '@/features/imports'
+import { EnrollForm, ImportPanel } from '@/features/imports'
 
 type EnrollmentStatus = Database['public']['Enums']['enrollment_status']
 type Tab = 'summary' | 'students' | 'content' | 'attendance' | 'grading' | 'certificates'
@@ -224,6 +224,7 @@ export function OfferingDetailPage() {
         {tab === 'students' && (
           <div className="grid gap-4">
             {canEnroll && offeringId && <InvitationPanel offeringId={offeringId} />}
+            {canEnroll && offeringId && <EnrollForm offeringId={offeringId} />}
             {canEnroll && offeringId && <ImportPanel offeringId={offeringId} />}
             <Card className="grid gap-4">
               <h2 className="text-lg font-bold">{t('teacherOfferings.enrollStudents')}</h2>
@@ -289,6 +290,12 @@ export function OfferingDetailPage() {
                     </h3>
                     {student.full_name?.trim() && (
                       <p className="text-sm text-text-muted">{student.email}</p>
+                    )}
+                    {(student.phone || student.job_title || student.company) && (
+                      <p className="text-sm text-text-muted">
+                        {[student.job_title, student.company, student.phone]
+                          .filter(Boolean).join(' · ')}
+                      </p>
                     )}
                   </div>
                   <Badge status={student.status === 'active' || student.status === 'completed'

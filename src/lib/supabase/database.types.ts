@@ -1972,6 +1972,9 @@ export type Database = {
           progress_pct: number
           status: Database["public"]["Enums"]["enrollment_status"]
           user_id: string
+          phone: string | null
+          job_title: string | null
+          company: string | null
         }[]
       }
       mark_lesson_progress: {

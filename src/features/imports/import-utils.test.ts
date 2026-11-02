@@ -22,6 +22,9 @@ describe('import-utils', () => {
     const out = buildPreview(table, dims)
     expect(out.ignoredColumns).toEqual(['Asistencia', 'Otro'])
     expect(out.rows[0]).toMatchObject({ email: 'ana@x.com', full_name: 'Ana', scores: { d1: 16 }, errors: [] })
+    const extra = buildPreview(parseCsv('correo,Celular,Cargo,Empresa\na@x.com,999,Jefe,ACME\n'), dims)
+    expect(extra.rows[0]).toMatchObject({ phone: '999', job_title: 'Jefe', company: 'ACME' })
+    expect(extra.ignoredColumns).toEqual([])
     expect(out.rows[1]!.errors).toEqual(['duplicate'])
     expect(out.rows[2]!.errors).toEqual(['email', 'score:Examen final'])
   })
@@ -30,7 +33,7 @@ describe('import-utils', () => {
     expect(buildPreview([['nombre'], ['x']], dims).problem).toBe('noEmail')
   })
   it('genera plantilla con las dimensiones manuales', () => {
-    expect(buildTemplate(dims).split('\n')[0]).toBe('correo,nombre,Examen final')
+    expect(buildTemplate(dims).split('\n')[0]).toBe('correo,nombre,celular,cargo,empresa,Examen final')
   })
   it('divide en lotes', () => {
     expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]])

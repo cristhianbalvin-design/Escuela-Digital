@@ -228,7 +228,11 @@ export async function renderClassicCertificate(
 
   const meta: string[] = []
   if (data.hours != null) meta.push(`Duración: ${data.hours} horas`)
-  if (data.grade != null) meta.push(`Calificación final: ${data.grade}/20`)
+  if (tpl.show_grade === true && data.grade != null) {
+    meta.push(`Calificación final: ${data.grade}/20`)
+  } else {
+    meta.push('Aprobó el curso con calificación satisfactoria')
+  }
   const issued = formatDateEs(data.issued_at)
   if (issued) meta.push(`Emitido el ${issued}`)
 

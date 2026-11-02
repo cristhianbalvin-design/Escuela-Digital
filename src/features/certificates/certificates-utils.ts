@@ -12,6 +12,7 @@ export type CompletionRules = {
   min_progress_pct?: number
   min_final_grade?: number
   min_attendance_pct?: number
+  show_grade?: boolean
   auto_issue?: boolean
   required_assessments?: string[]
 }
@@ -71,6 +72,7 @@ function rulesFrom(value: unknown): CompletionRules {
     ...(grade !== null ? { min_final_grade: grade } : {}),
     ...(attendance !== null ? { min_attendance_pct: attendance } : {}),
     ...(typeof row?.auto_issue === 'boolean' ? { auto_issue: row.auto_issue } : {}),
+    ...(row?.show_grade === true ? { show_grade: true } : {}),
     ...(required ? { required_assessments: required } : {}),
   }
 }
@@ -183,6 +185,7 @@ export function rulesToSave(values: {
   min_progress_pct: number
   min_final_grade: number
   min_attendance_pct?: number
+  show_grade?: boolean
   auto_issue: boolean
   required_assessments: string[]
 }): CompletionRules {
@@ -193,6 +196,7 @@ export function rulesToSave(values: {
     ...(values.min_attendance_pct !== undefined && Number.isFinite(values.min_attendance_pct)
       && values.min_attendance_pct > 0
       ? { min_attendance_pct: values.min_attendance_pct } : {}),
+    ...(values.show_grade === true ? { show_grade: true } : {}),
     auto_issue: values.auto_issue,
     ...(values.required_assessments.length > 0
       ? { required_assessments: values.required_assessments } : {}),

@@ -10,6 +10,9 @@ export const MAX_ROWS = 25
 export interface ImportRow {
   email: string
   full_name: string
+  phone: string
+  job_title: string
+  company: string
   scores: Record<string, number>
 }
 
@@ -52,7 +55,12 @@ export function parseImportBody(
         }
       }
     }
-    rows.push({ email, full_name: fullName, scores })
+    const text = (value: unknown, max: number) =>
+      typeof value === 'string' ? value.trim().slice(0, max) : ''
+    rows.push({
+      email, full_name: fullName, scores,
+      phone: text(row.phone, 30), job_title: text(row.job_title, 120), company: text(row.company, 120),
+    })
   }
   return { offeringId: root.offering_id, rows }
 }
@@ -91,6 +99,7 @@ async function importRow(
     }
     const done = await admin.rpc('import_participant', {
       p_actor: actor, p_offering_id: offeringId, p_user_id: userId, p_scores: row.scores,
+      p_details: { phone: row.phone, job_title: row.job_title, company: row.company },
     })
     if (done.error) throw new Error(done.error.message)
     const data = (done.data ?? {}) as { created?: boolean; scores?: number }
