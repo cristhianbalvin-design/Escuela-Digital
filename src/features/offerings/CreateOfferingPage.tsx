@@ -8,6 +8,7 @@ import { useTenantAccess } from '@/features/tenants'
 import { readableError } from '@/features/courses/schemas'
 import { supabase } from '@/lib/supabase'
 import { useCreateOffering, useOfferingChoices } from './api'
+import { generateOfferingCode } from './offering-code'
 import { offeringSchema, type OfferingValues } from './schemas'
 
 const selectClass = 'min-h-11 rounded-control border border-border bg-surface px-3 focus-visible:outline-3'
@@ -28,6 +29,8 @@ export function CreateOfferingPage() {
       seats: '', enrollmentMode: 'invite', timezone: brand.timeZone,
     },
   })
+
+  const watched = form.watch()
 
   if (!supabase || !tenantId) return <EmptyState title={t('teacherCommon.connect')} />
   if (choices.isPending) return <Skeleton className="h-64" />
@@ -95,9 +98,11 @@ export function CreateOfferingPage() {
             <Input label={t('teacherOfferings.offeringTitle')}
               error={form.formState.errors.title?.message}
               {...form.register('title')} />
-            <Input label={t('teacherOfferings.code')}
-              error={form.formState.errors.code?.message}
-              {...form.register('code')} />
+            <p className="text-sm text-text-muted" aria-live="polite">
+              {t('teacherOfferings.codeAuto', { code: generateOfferingCode(
+                watched.title, watched.startsAt ? new Date(watched.startsAt) : undefined,
+              ) })}
+            </p>
             <label htmlFor="offering-modality" className="text-sm font-semibold">
               {t('teacherOfferings.modality')}
             </label>

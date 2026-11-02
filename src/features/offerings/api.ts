@@ -1,3 +1,4 @@
+import { codeAttempt, generateOfferingCode, MAX_CODE_ATTEMPTS } from './offering-code'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '@/lib/supabase'
@@ -87,22 +88,29 @@ export function useCreateOffering(tenantId: string | undefined) {
   return useMutation({
     mutationFn: async (values: OfferingValues) => {
       if (!tenantId) throw new Error('Escuela no disponible')
-      const { data, error } = await client().rpc('create_offering', {
-        p_tenant_id: tenantId,
-        p_client_id: values.clientId,
-        p_version_id: values.versionId,
-        p_title: values.title.trim(),
-        p_code: values.code.trim(),
-        p_modality: values.modality,
-        p_starts_at: values.startsAt ? new Date(values.startsAt).toISOString() : null,
-        p_ends_at: values.endsAt ? new Date(values.endsAt).toISOString() : null,
-        p_seats: values.seats ? Number(values.seats) : null,
-        p_enrollment_mode: values.enrollmentMode,
-        p_timezone: values.timezone,
-      })
-      check(error)
-      if (!data) throw new Error('No se recibió la edición creada')
-      return data
+      const base = values.code.trim() || generateOfferingCode(
+        values.title, values.startsAt ? new Date(values.startsAt) : new Date(),
+      )
+      for (let attempt = 1; attempt <= MAX_CODE_ATTEMPTS; attempt += 1) {
+        const { data, error } = await client().rpc('create_offering', {
+          p_tenant_id: tenantId,
+          p_client_id: values.clientId,
+          p_version_id: values.versionId,
+          p_title: values.title.trim(),
+          p_code: codeAttempt(base, attempt),
+          p_modality: values.modality,
+          p_starts_at: values.startsAt ? new Date(values.startsAt).toISOString() : null,
+          p_ends_at: values.endsAt ? new Date(values.endsAt).toISOString() : null,
+          p_seats: values.seats ? Number(values.seats) : null,
+          p_enrollment_mode: values.enrollmentMode,
+          p_timezone: values.timezone,
+        })
+        if (error && error.code === '23505' && attempt < MAX_CODE_ATTEMPTS) continue
+        check(error)
+        if (!data) throw new Error('No se recibió la edición creada')
+        return data
+      }
+      throw new Error('No se pudo generar un código único')
     },
     onSuccess: () => void cache.invalidateQueries({ queryKey: ['offerings', tenantId] }),
   })

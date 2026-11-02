@@ -403,6 +403,7 @@ export const resources = {
         version: 'Curso y versión publicada',
         offeringTitle: 'Título de la edición',
         code: 'Código',
+        codeAuto: 'Código de la edición (se genera solo): {{code}}',
         modality: 'Modalidad',
         selfPaced: 'Autoguiado',
         live: 'En vivo',

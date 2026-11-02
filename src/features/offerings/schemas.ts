@@ -5,7 +5,7 @@ export const offeringSchema = z.object({
   versionId: z.string().uuid('Elige una versión publicada'),
   clientId: z.string().uuid('Elige un cliente'),
   title: z.string().trim().min(1, 'Ingresa un título'),
-  code: z.string().trim().min(1, 'Ingresa un código'),
+  code: z.string().trim(),
   modality: z.enum(['self_paced', 'live', 'hybrid']),
   startsAt: z.string(),
   endsAt: z.string(),
