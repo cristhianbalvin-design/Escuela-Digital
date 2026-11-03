@@ -85,6 +85,47 @@ export function applySuggestedDates(
   return drafts.map((draft, index) => ({ ...draft, date: dates[index] ?? draft.date }))
 }
 
+export type SchedulePlan = {
+  startIso: string
+  weekdays: number[]
+  start: string
+  end: string
+}
+
+/**
+ * Aplica el plan (fecha de inicio, días de clase y horario) a todas las sesiones en orden.
+ * Si el plan está incompleto no cambia nada. Luego cada sesión se puede ajustar a mano.
+ */
+export function applyPlan(drafts: ScheduleDraft[], plan: SchedulePlan): ScheduleDraft[] {
+  const dates = suggestDates(drafts.length, plan.startIso, plan.weekdays)
+  if (dates.length === 0) return drafts
+  return drafts.map((draft, index) => {
+    const date = dates[index]
+    return date === undefined
+      ? draft
+      : { ...draft, date, start: plan.start, end: plan.end }
+  })
+}
+
+function weekdayOf(iso: string): number {
+  const parts = iso.split('-')
+  return new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))).getUTCDay()
+}
+
+/** Deduce el plan a partir de un calendario ya guardado (fecha más temprana, días y horario). */
+export function inferPlan(drafts: ScheduleDraft[]): SchedulePlan {
+  const dated = drafts.filter((draft) => draft.date !== '')
+  if (dated.length === 0) return { startIso: '', weekdays: [], start: '', end: '' }
+  const dates = dated.map((draft) => draft.date).sort()
+  const weekdays = [...new Set(dates.map(weekdayOf))].sort((a, b) => a - b)
+  return {
+    startIso: dates[0] ?? '',
+    weekdays,
+    start: dated.find((draft) => draft.start !== '')?.start ?? '',
+    end: dated.find((draft) => draft.end !== '')?.end ?? '',
+  }
+}
+
 /** "2026-11-02" → "02/11/2026" sin pasar por zonas horarias. */
 export function formatDate(iso: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)

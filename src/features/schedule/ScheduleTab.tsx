@@ -5,8 +5,8 @@ import {
   useCreateAttendanceFromSchedule, useSaveSchedule, useSchedule,
 } from './schedule-api'
 import {
-  applySuggestedDates, draftsToItems, groupByModule, invalidTimes, rowsToDrafts,
-  type ScheduleDraft, type ScheduleRow,
+  applyPlan, draftsToItems, groupByModule, inferPlan, invalidTimes, rowsToDrafts,
+  type SchedulePlan, type ScheduleDraft, type ScheduleRow,
 } from './schedule-utils'
 
 const fieldClass =
@@ -41,8 +41,7 @@ function ScheduleEditor({ offeringId, rows }: { offeringId: string; rows: Schedu
   const { t } = useTranslation()
   const initial = rowsToDrafts(rows)
   const [drafts, setDrafts] = useState<ScheduleDraft[]>(initial)
-  const [startDate, setStartDate] = useState('')
-  const [days, setDays] = useState<number[]>([])
+  const [plan, setPlan] = useState<SchedulePlan>(() => inferPlan(initial))
   const [message, setMessage] = useState('')
   const save = useSaveSchedule(offeringId)
   const createCalls = useCreateAttendanceFromSchedule(offeringId)
@@ -59,10 +58,20 @@ function ScheduleEditor({ offeringId, rows }: { offeringId: string; rows: Schedu
       draft.lesson_id === lessonId ? { ...draft, ...change } : draft))
   }
 
+  // Cada cambio del plan (inicio, días u horario) rellena de inmediato todas las sesiones.
+  function changePlan(change: Partial<SchedulePlan>) {
+    const next = { ...plan, ...change }
+    setPlan(next)
+    setMessage('')
+    setDrafts((current) => applyPlan(current, next))
+  }
+
   function toggleDay(day: number) {
-    setDays((current) => current.includes(day)
-      ? current.filter((value) => value !== day)
-      : [...current, day])
+    changePlan({
+      weekdays: plan.weekdays.includes(day)
+        ? plan.weekdays.filter((value) => value !== day)
+        : [...plan.weekdays, day],
+    })
   }
 
   async function onSave() {
@@ -93,8 +102,8 @@ function ScheduleEditor({ offeringId, rows }: { offeringId: string; rows: Schedu
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="grid gap-1 text-sm font-semibold">
             {t('schedule.startDate')}
-            <input type="date" className={fieldClass} value={startDate}
-              onChange={(event) => setStartDate(event.target.value)} />
+            <input type="date" className={fieldClass} value={plan.startIso}
+              onChange={(event) => changePlan({ startIso: event.target.value })} />
           </label>
           <fieldset className="grid gap-1">
             <legend className="text-sm font-semibold">{t('schedule.classDays')}</legend>
@@ -103,21 +112,26 @@ function ScheduleEditor({ offeringId, rows }: { offeringId: string; rows: Schedu
                 <label key={day}
                   className="flex min-h-11 items-center gap-2 rounded-control border border-border px-3 text-sm">
                   <input type="checkbox" className="size-4 accent-brand"
-                    checked={days.includes(day)} onChange={() => toggleDay(day)} />
+                    checked={plan.weekdays.includes(day)} onChange={() => toggleDay(day)} />
                   {t(`schedule.weekday.${day}`)}
                 </label>
               ))}
             </div>
           </fieldset>
         </div>
-        <Button variant="secondary" className="w-fit"
-          disabled={startDate === '' || days.length === 0}
-          onClick={() => {
-            setMessage('')
-            setDrafts((current) => applySuggestedDates(current, startDate, days))
-          }}>
-          {t('schedule.suggest')}
-        </Button>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-1 text-sm font-semibold">
+            {t('schedule.classStart')}
+            <input type="time" className={fieldClass} value={plan.start}
+              onChange={(event) => changePlan({ start: event.target.value })} />
+          </label>
+          <label className="grid gap-1 text-sm font-semibold">
+            {t('schedule.classEnd')}
+            <input type="time" className={fieldClass} value={plan.end}
+              onChange={(event) => changePlan({ end: event.target.value })} />
+          </label>
+        </div>
+        <p className="text-sm text-text-muted">{t('schedule.autoNote')}</p>
       </Card>
 
       {groupByModule(rows).map((group) => (
