@@ -49,6 +49,8 @@ export function ImportPanel({ offeringId }: { offeringId: string }) {
   function describeError(code: string): string {
     if (code === 'email') return t('import.errEmail')
     if (code === 'duplicate') return t('import.errDuplicate')
+    if (code === 'duplicateName') return t('import.errDuplicateName')
+    if (code === 'identity') return t('import.errIdentity')
     if (code.startsWith('score:')) return t('import.errScore', { name: code.slice(6) })
     return code
   }

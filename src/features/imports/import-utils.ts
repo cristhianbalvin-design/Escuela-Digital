@@ -75,8 +75,9 @@ export function buildPreview(table: string[][], dimensions: ImportDimension[]): 
   const header = table[0]!.map((cell) => cell.trim())
   const normalized = header.map(normalizeHeader)
   const emailIndex = normalized.findIndex((h) => EMAIL_HEADERS.has(h))
-  if (emailIndex < 0) return { rows: [], ignoredColumns: [], problem: 'noEmail' }
   const nameIndex = normalized.findIndex((h) => NAME_HEADERS.has(h))
+  // Hace falta al menos una forma de identificar a la persona: correo o nombre.
+  if (emailIndex < 0 && nameIndex < 0) return { rows: [], ignoredColumns: [], problem: 'noEmail' }
   const phoneIndex = normalized.findIndex((h) => PHONE_HEADERS.has(h))
   const jobIndex = normalized.findIndex((h) => JOB_HEADERS.has(h))
   const companyIndex = normalized.findIndex((h) => COMPANY_HEADERS.has(h))
@@ -91,7 +92,7 @@ export function buildPreview(table: string[][], dimensions: ImportDimension[]): 
   })
   const seen = new Set<string>()
   const rows: PreviewRow[] = table.slice(1).map((cells, offset) => {
-    const email = (cells[emailIndex] ?? '').trim().toLowerCase()
+    const email = emailIndex >= 0 ? (cells[emailIndex] ?? '').trim().toLowerCase() : ''
     const row: PreviewRow = {
       line: offset + 2, email,
       full_name: nameIndex >= 0 ? (cells[nameIndex] ?? '').trim() : '',
@@ -100,9 +101,11 @@ export function buildPreview(table: string[][], dimensions: ImportDimension[]): 
       company: companyIndex >= 0 ? (cells[companyIndex] ?? '').trim() : '',
       scores: {}, errors: [],
     }
-    if (!EMAIL.test(email)) row.errors.push('email')
-    else if (seen.has(email)) row.errors.push('duplicate')
-    seen.add(email)
+    const key = email || `nombre:${row.full_name.toLowerCase().replace(/\s+/g, ' ')}`
+    if (email === '' && row.full_name === '') row.errors.push('identity')
+    else if (email !== '' && !EMAIL.test(email)) row.errors.push('email')
+    else if (seen.has(key)) row.errors.push(email === '' ? 'duplicateName' : 'duplicate')
+    seen.add(key)
     for (const [index, dimension] of dimensionColumns) {
       const score = parseScore(cells[index] ?? '')
       if (score === 'invalid') row.errors.push(`score:${dimension.name}`)

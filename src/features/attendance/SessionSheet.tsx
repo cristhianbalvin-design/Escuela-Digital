@@ -9,6 +9,7 @@ import { ConfirmDialog, ReasonDialog, SessionFormDialog } from './AttendanceDial
 import {
   countMarks, formatSessionDate, STATUSES, type AttendanceStatus,
 } from './attendance-utils'
+import { shownEmail } from '@/lib/placeholder-email'
 
 type Dialog = 'edit' | 'close' | 'reopen' | 'delete' | null
 
@@ -113,8 +114,8 @@ export function SessionSheet({
                 <Card className="grid gap-2 xl:grid-cols-[1fr_auto] xl:items-center">
                   <div className="min-w-0">
                     <p className="truncate font-semibold">{name}</p>
-                    {student.full_name && student.email &&
-                      <p className="truncate text-sm text-text-muted">{student.email}</p>}
+                    {student.full_name && shownEmail(student.email) &&
+                      <p className="truncate text-sm text-text-muted">{shownEmail(student.email)}</p>}
                   </div>
                   {isOpen ? (
                     <div role="group" aria-label={t('attendance.markFor', { name })}

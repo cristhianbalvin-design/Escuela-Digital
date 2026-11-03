@@ -30,7 +30,19 @@ describe('import-utils', () => {
   })
   it('detecta archivo vacío o sin columna de correo', () => {
     expect(buildPreview([['correo']], dims).problem).toBe('empty')
-    expect(buildPreview([['nombre'], ['x']], dims).problem).toBe('noEmail')
+    expect(buildPreview([['celular'], ['x']], dims).problem).toBe('noEmail')
+  })
+  it('acepta participantes solo con nombre y avisa de homónimos o filas vacías', () => {
+    const out = buildPreview(parseCsv('nombre,Examen final\nAna Pérez,15\nana  pérez,12\n,10\nLuis,\n'), dims)
+    expect(out.problem).toBeNull()
+    expect(out.rows[0]).toMatchObject({ email: '', full_name: 'Ana Pérez', errors: [] })
+    expect(out.rows[1]!.errors).toEqual(['duplicateName'])
+    expect(out.rows[2]!.errors).toEqual(['identity'])
+    expect(out.rows[3]!.errors).toEqual([])
+  })
+  it('mezcla filas con correo y filas sin correo', () => {
+    const out = buildPreview(parseCsv('correo,nombre\nana@x.com,Ana\n,Luis\n'), dims)
+    expect(out.rows.map((r) => r.errors)).toEqual([[], []])
   })
   it('genera plantilla con las dimensiones manuales', () => {
     expect(buildTemplate(dims).split('\n')[0]).toBe('correo,nombre,celular,cargo,empresa,Examen final')

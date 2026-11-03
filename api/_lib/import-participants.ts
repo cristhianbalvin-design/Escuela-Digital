@@ -7,6 +7,19 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export const MAX_ROWS = 25
 
+// Participantes sin correo: cuenta interna que nunca recibe mensajes ni inicia sesión.
+const PLACEHOLDER_PREFIX = 'sin-correo-'
+const PLACEHOLDER_DOMAIN = 'sin-correo.invalid'
+
+function normalizeName(value: string): string {
+  return value.toLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+/** Etiqueta para el resultado: el correo, o el nombre si no hay correo. */
+function labelOf(row: { email: string; full_name: string }): string {
+  return row.email || row.full_name
+}
+
 export interface ImportRow {
   email: string
   full_name: string
@@ -72,27 +85,55 @@ async function importRow(
   row: ImportRow,
 ): Promise<ImportResult> {
   const base = {
-    email: row.email, account_created: false, enrollment_created: false, scores: 0,
+    email: labelOf(row), account_created: false, enrollment_created: false, scores: 0,
   }
-  if (row.email.length > 254 || !EMAIL.test(row.email)) {
+  const hasEmail = row.email !== ''
+  if (hasEmail && (row.email.length > 254 || !EMAIL.test(row.email))) {
     return { ...base, status: 'error', error: 'Correo no válido' }
   }
+  if (!hasEmail && row.full_name === '') {
+    return { ...base, status: 'error', error: 'Falta el correo o el nombre' }
+  }
   try {
-    const found = await admin.rpc('import_find_user', { p_email: row.email })
-    if (found.error) throw new Error(found.error.message)
-    let userId = typeof found.data === 'string' ? found.data : null
+    let userId: string | null = null
     let accountCreated = false
-    if (!userId) {
-      const created = await admin.auth.admin.createUser({
-        email: row.email,
-        email_confirm: true,
-        user_metadata: row.full_name ? { full_name: row.full_name } : {},
+    if (hasEmail) {
+      const found = await admin.rpc('import_find_user', { p_email: row.email })
+      if (found.error) throw new Error(found.error.message)
+      userId = typeof found.data === 'string' ? found.data : null
+      if (!userId) {
+        const created = await admin.auth.admin.createUser({
+          email: row.email,
+          email_confirm: true,
+          user_metadata: row.full_name ? { full_name: row.full_name } : {},
+        })
+        if (created.error || !created.data.user) {
+          const retry = await admin.rpc('import_find_user', { p_email: row.email })
+          userId = typeof retry.data === 'string' ? retry.data : null
+          if (!userId) throw new Error(created.error?.message ?? 'No se pudo crear la cuenta')
+        } else {
+          userId = created.data.user.id
+          accountCreated = true
+        }
+      }
+    } else {
+      // Sin correo: se reutiliza al participante del mismo cliente con ese nombre, o se crea uno interno.
+      const found = await admin.rpc('import_find_placeholder', {
+        p_offering_id: offeringId, p_name: normalizeName(row.full_name),
       })
-      if (created.error || !created.data.user) {
-        const retry = await admin.rpc('import_find_user', { p_email: row.email })
-        userId = typeof retry.data === 'string' ? retry.data : null
-        if (!userId) throw new Error(created.error?.message ?? 'No se pudo crear la cuenta')
-      } else {
+      if (found.error) throw new Error(found.error.message)
+      userId = typeof found.data === 'string' ? found.data : null
+      if (!userId) {
+        const token = crypto.randomUUID().replace(/-/g, '').slice(0, 16)
+        const created = await admin.auth.admin.createUser({
+          email: `${PLACEHOLDER_PREFIX}${token}@${PLACEHOLDER_DOMAIN}`,
+          email_confirm: true,
+          password: `${crypto.randomUUID()}${crypto.randomUUID()}`,
+          user_metadata: { full_name: row.full_name, placeholder: true },
+        })
+        if (created.error || !created.data.user) {
+          throw new Error(created.error?.message ?? 'No se pudo crear al participante')
+        }
         userId = created.data.user.id
         accountCreated = true
       }
@@ -156,14 +197,16 @@ export async function handleImport(
   const results: ImportResult[] = []
   const seen = new Set<string>()
   for (const row of parsed.rows) {
-    if (seen.has(row.email)) {
+    const key = row.email || `nombre:${normalizeName(row.full_name)}`
+    if (seen.has(key)) {
       results.push({
-        email: row.email, status: 'error', account_created: false,
-        enrollment_created: false, scores: 0, error: 'Correo repetido en el archivo',
+        email: labelOf(row), status: 'error', account_created: false,
+        enrollment_created: false, scores: 0,
+        error: row.email ? 'Correo repetido en el archivo' : 'Nombre repetido en el archivo',
       })
       continue
     }
-    seen.add(row.email)
+    seen.add(key)
     results.push(await importRow(admin, userData.user.id, parsed.offeringId, row))
   }
   return json({ results })

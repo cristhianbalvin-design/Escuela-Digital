@@ -5,6 +5,7 @@ import { downloadCsv, formatGrade, gradebookToCsv } from './grading-utils'
 import { useFinalizeGrades, useGradebook } from './grading-api'
 import type { GradeItem, GradebookStudent } from './grading-api'
 import { SetManualGradeDialog } from './SetManualGradeDialog'
+import { shownEmail } from '@/lib/placeholder-email'
 
 export function GradebookPanel({ offeringId }: { offeringId: string }) {
   const { t } = useTranslation()
@@ -51,7 +52,7 @@ export function GradebookPanel({ offeringId }: { offeringId: string }) {
               <th scope="col">{t('grading.partial')}</th><th scope="col">{t('grading.finalGrade')}</th>
             </tr></thead>
             <tbody>{students.map((student) => <tr key={student.enrollment_id}>
-              <th scope="row">{student.full_name || student.email}</th><td>{student.email}</td>
+              <th scope="row">{student.full_name || student.email}</th><td>{shownEmail(student.email)}</td>
               {items.map((item) => {
                 const grade = student.grades[item.id]
                 if (item.source_type === 'attendance') {

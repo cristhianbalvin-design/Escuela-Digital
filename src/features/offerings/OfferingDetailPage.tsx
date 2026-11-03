@@ -20,6 +20,7 @@ import { CertificatesTab } from '@/features/certificates'
 import { AttendanceTab } from '@/features/attendance'
 import { ScheduleTab } from '@/features/schedule'
 import { EnrollForm, ImportPanel } from '@/features/imports'
+import { shownEmail } from '@/lib/placeholder-email'
 
 type EnrollmentStatus = Database['public']['Enums']['enrollment_status']
 type Tab = 'summary' | 'students' | 'content' | 'schedule' | 'attendance' | 'grading' | 'certificates'
@@ -259,7 +260,7 @@ export function OfferingDetailPage() {
                             <span className="font-semibold">{name || student.email}</span>
                             {name && (
                               <span className="text-sm text-text-muted">
-                                {student.email}
+                                {shownEmail(student.email)}
                               </span>
                             )}
                           </span>
@@ -291,7 +292,7 @@ export function OfferingDetailPage() {
                       {student.full_name?.trim() || student.email}
                     </h3>
                     {student.full_name?.trim() && (
-                      <p className="text-sm text-text-muted">{student.email}</p>
+                      <p className="text-sm text-text-muted">{shownEmail(student.email)}</p>
                     )}
                     {(student.phone || student.job_title || student.company) && (
                       <p className="text-sm text-text-muted">

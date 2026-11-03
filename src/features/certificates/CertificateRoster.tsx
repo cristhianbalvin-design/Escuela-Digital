@@ -9,6 +9,7 @@ import {
 } from './certificates-api'
 import { unmetMessageKeys } from './certificates-utils'
 import { CertificateReasonDialog } from './CertificateReasonDialog'
+import { shownEmail } from '@/lib/placeholder-email'
 
 type Dialog = { kind: 'revoke' | 'reissue'; certificateId: string } | null
 
@@ -85,7 +86,7 @@ export function CertificateRoster({
               <tr key={row.enrollment_id} className="border-t border-border align-top">
                 <th scope="row" className="py-3 pr-3 font-semibold">
                   {row.full_name.trim() || row.email}
-                  <span className="block text-sm font-normal text-text-muted">{row.email}</span>
+                  <span className="block text-sm font-normal text-text-muted">{shownEmail(row.email)}</span>
                 </th>
                 <td className="py-3 pr-3">
                   <Badge status={BADGE[status] ?? 'neutral'}>{t(`certificates.status.${status}`)}</Badge>
