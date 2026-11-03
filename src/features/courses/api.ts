@@ -127,15 +127,17 @@ export function useCreateCourse(tenantId: string | undefined) {
             }).select('id').single()
           check(moduleError)
           if (!module) throw new Error('No se creó el módulo')
-          const { error: lessonError } = await db.from('lessons').insert({
+          const perWeek = Math.max(1, Math.min(7, values.sessions ?? 1))
+          const lessons = Array.from({ length: perWeek }, (_, i) => ({
             tenant_id: tenantId,
             version_id: version.id,
             module_id: module.id,
-            type: 'reading',
-            title: `Lectura de la semana ${index}`,
-            position: 1,
+            type: 'reading' as const,
+            title: perWeek === 1 ? `Lectura de la semana ${index}` : `Sesión ${i + 1}`,
+            position: i + 1,
             content: { text: '' },
-          })
+          }))
+          const { error: lessonError } = await db.from('lessons').insert(lessons)
           check(lessonError)
         }
       }

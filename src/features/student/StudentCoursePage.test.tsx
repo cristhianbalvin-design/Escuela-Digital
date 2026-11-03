@@ -8,6 +8,7 @@ import { StudentCoursePage } from './StudentCoursePage'
 const { from, rpc } = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn() }))
 
 vi.mock('./MyGradesPanel', () => ({ MyGradesPanel: () => null }))
+vi.mock('@/features/schedule', () => ({ StudentSchedulePanel: () => null }))
 vi.mock('./MyAttendancePanel', () => ({ MyAttendancePanel: () => null }))
 vi.mock('@/lib/supabase', () => ({ supabase: { from, rpc } }))
 vi.mock('@/features/auth', () => ({

@@ -17,10 +17,11 @@ import { InvitationPanel } from './InvitationPanel'
 import { GradingTab } from './grading/GradingTab'
 import { CertificatesTab } from '@/features/certificates'
 import { AttendanceTab } from '@/features/attendance'
+import { ScheduleTab } from '@/features/schedule'
 import { EnrollForm, ImportPanel } from '@/features/imports'
 
 type EnrollmentStatus = Database['public']['Enums']['enrollment_status']
-type Tab = 'summary' | 'students' | 'content' | 'attendance' | 'grading' | 'certificates'
+type Tab = 'summary' | 'students' | 'content' | 'schedule' | 'attendance' | 'grading' | 'certificates'
 
 const nextStatus: Record<
   Database['public']['Enums']['offering_status'],
@@ -188,7 +189,7 @@ export function OfferingDetailPage() {
       <h1 className="font-heading text-2xl font-bold">{offering.title}</h1>
       <div role="tablist" aria-label={t('teacherOfferings.detailTabs')}
         className="flex flex-wrap gap-2">
-        {(['summary', 'students', 'content', 'attendance', 'grading', 'certificates'] as const).map((item) => (
+        {(['summary', 'students', 'content', 'schedule', 'attendance', 'grading', 'certificates'] as const).map((item) => (
           <Button key={item} role="tab" aria-selected={tab === item}
             variant={tab === item ? 'primary' : 'secondary'}
             onClick={() => setTab(item)}>
@@ -318,6 +319,7 @@ export function OfferingDetailPage() {
               ))}
           </div>
         )}
+        {tab === 'schedule' && offeringId && <ScheduleTab offeringId={offeringId} />}
         {tab === 'attendance' && offeringId && <AttendanceTab offeringId={offeringId} />}
         {tab === 'grading' && offeringId && <GradingTab offeringId={offeringId} />}
         {tab === 'certificates' && offeringId && <CertificatesTab offeringId={offeringId} />}

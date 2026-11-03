@@ -1862,6 +1862,12 @@ export type Database = {
       get_attendance_sheet: { Args: { p_session_id: string }; Returns: Json }
       get_attendance_summary: { Args: { p_offering_id: string }; Returns: Json }
       get_my_attendance: { Args: { p_enrollment_id: string }; Returns: Json }
+      get_offering_schedule: { Args: { p_offering_id: string }; Returns: Json }
+      save_offering_schedule: {
+        Args: { p_items: Json; p_offering_id: string }
+        Returns: undefined
+      }
+      create_attendance_from_schedule: { Args: { p_offering_id: string }; Returns: number }
       reopen_attendance_session: {
         Args: { p_reason: string; p_session_id: string }
         Returns: undefined

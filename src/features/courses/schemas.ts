@@ -15,6 +15,7 @@ export const courseSchema = z.object({
   language: z.array(z.string()).min(1, 'Elige al menos un idioma'),
   structure: z.enum(['empty', 'weekly']),
   weeks: z.coerce.number<number>().int().min(1).max(52),
+  sessions: z.coerce.number<number>().int().min(1).max(7),
 })
 
 export type CourseValues = z.infer<typeof courseSchema>

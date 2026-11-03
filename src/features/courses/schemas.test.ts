@@ -5,11 +5,13 @@ describe('courseSchema', () => {
   it('valida identificadores y cantidad de semanas', () => {
     const base = {
       title: 'Curso', slug: 'curso', category: [], level: [],
-      language: ['es'], structure: 'weekly', weeks: 4,
+      language: ['es'], structure: 'weekly', weeks: 4, sessions: 2,
     }
     expect(courseSchema.safeParse(base).success).toBe(true)
     expect(courseSchema.safeParse({ ...base, slug: 'admin' }).success).toBe(false)
     expect(courseSchema.safeParse({ ...base, weeks: 0 }).success).toBe(false)
+    expect(courseSchema.safeParse({ ...base, sessions: 0 }).success).toBe(false)
+    expect(courseSchema.safeParse({ ...base, sessions: 8 }).success).toBe(false)
   })
 
   it('genera un identificador legible', () => {

@@ -9,6 +9,7 @@ import {
   studentErrorKey, useStudentCourses, useStudentOutline, useStudentProgress,
 } from './api'
 import { formatUnlockDate, nextLesson, type OutlineModule } from './utils'
+import { StudentSchedulePanel } from '@/features/schedule'
 import { MyAttendancePanel } from './MyAttendancePanel'
 import { MyGradesPanel } from './MyGradesPanel'
 
@@ -96,6 +97,7 @@ export function StudentCoursePage() {
           description={t('student.noLessonsHint')} />
       ) : (
         <div className="grid gap-3">
+          <StudentSchedulePanel offeringId={course.enrollment.offering_id} />
           <MyGradesPanel enrollmentId={course.enrollment.id} />
           <MyAttendancePanel enrollmentId={course.enrollment.id} />
           <h2 className="text-xl font-bold">{t('student.content')}</h2>

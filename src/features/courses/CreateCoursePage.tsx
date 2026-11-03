@@ -26,7 +26,7 @@ export function CreateCoursePage() {
     resolver: zodResolver(courseSchema),
     defaultValues: {
       title: '', slug: '', category: [], level: [], language: ['es'],
-      structure: 'empty', weeks: 4,
+      structure: 'empty', weeks: 4, sessions: 1,
     },
   })
   const values = form.watch()
@@ -101,10 +101,17 @@ export function CreateCoursePage() {
                 <option value="weekly">{t('teacherCourses.weeklyStructure')}</option>
               </select>
               {values.structure === 'weekly' && (
-                <Input type="number" min={1} max={52}
-                  label={t('teacherCourses.weeks')}
-                  error={form.formState.errors.weeks?.message}
-                  {...form.register('weeks')} />
+                <>
+                  <Input type="number" min={1} max={52}
+                    label={t('teacherCourses.weeks')}
+                    error={form.formState.errors.weeks?.message}
+                    {...form.register('weeks')} />
+                  <Input type="number" min={1} max={7}
+                    label={t('teacherCourses.sessionsPerWeek')}
+                    error={form.formState.errors.sessions?.message}
+                    {...form.register('sessions')} />
+                  <p className="text-sm text-text-muted">{t('teacherCourses.sessionsPerWeekHint')}</p>
+                </>
               )}
             </>
           )}
@@ -117,7 +124,7 @@ export function CreateCoursePage() {
               {values.level.length > 0 && <p>{values.level.join(', ')}</p>}
               <p>{values.language.map(languageLabel).join(', ')}</p>
               <p>{values.structure === 'weekly'
-                ? t('teacherCourses.weeklyCount', { count: Number(values.weeks) })
+                ? `${t('teacherCourses.weeklyCount', { count: Number(values.weeks) })} · ${t('teacherCourses.sessionsCount', { count: Number(values.sessions) })}`
                 : t('teacherCourses.emptyStructure')}</p>
             </div>
           )}
