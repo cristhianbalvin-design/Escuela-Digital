@@ -5,6 +5,7 @@ import {
   Badge, Button, Card, EmptyState, Progress, Skeleton, useToast,
 } from '@/components/ui'
 import { LessonContent } from '@/features/courses/LessonContent'
+import { LessonResources } from '@/features/resources'
 import { useTenantAccess } from '@/features/tenants'
 import { readableError } from '@/features/courses/schemas'
 import { supabase } from '@/lib/supabase'
@@ -359,6 +360,9 @@ export function OfferingDetailPage() {
                         )}
                         {!lesson.locked && lesson.content !== undefined &&
                           <LessonContent content={lesson.content} />}
+                        {!lesson.locked && (
+                          <LessonResources lessonId={lesson.id} editable={false} />
+                        )}
                       </li>
                     ))}
                   </ul>
