@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Button, Card, EmptyState, Progress, Skeleton, useToast } from '@/components/ui'
 import { LessonContent } from '@/features/courses/LessonContent'
+import { LessonResources } from '@/features/resources'
 import { useAuth } from '@/features/auth'
 import { useTenantAccess } from '@/features/tenants'
 import { supabase } from '@/lib/supabase'
@@ -137,6 +138,7 @@ export function LessonPlayerPage() {
                 ) : lesson.content !== undefined
                   ? <LessonContent content={lesson.content} />
                   : <p>{t('student.lessonUnavailable')}</p>}
+                <LessonResources lessonId={lesson.id} editable={false} />
                 {mark.isError && (
                   <p role="alert">{t(studentErrorKey(mark.error))}</p>
                 )}

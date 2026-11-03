@@ -1863,6 +1863,7 @@ export type Database = {
       get_attendance_summary: { Args: { p_offering_id: string }; Returns: Json }
       get_my_attendance: { Args: { p_enrollment_id: string }; Returns: Json }
       get_offering_schedule: { Args: { p_offering_id: string }; Returns: Json }
+      get_lesson_resources: { Args: { p_lesson_id: string }; Returns: Json }
       save_offering_schedule: {
         Args: { p_items: Json; p_offering_id: string }
         Returns: undefined

@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import type { Lesson, Module } from './api'
 import { useCourse, useCourseAction } from './api'
 import { LessonContent } from './LessonContent'
+import { LessonResources } from '@/features/resources'
 import { ActivitiesPanel } from './activities/ActivitiesPanel'
 import { LessonActivityPicker } from './activities/LessonActivityPicker'
 import { readableError } from './schemas'
@@ -312,6 +313,8 @@ function LessonEditor({
       ) : (
         <LessonContent content={lesson.content} />
       )}
+      <LessonResources lessonId={lesson.id} tenantId={lesson.tenant_id}
+        versionId={lesson.version_id} editable={editable} />
       {editable && (
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" disabled={pending || !canUp}
