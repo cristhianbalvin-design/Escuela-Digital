@@ -65,6 +65,26 @@ describe('RoleGuard con Supabase configurado', () => {
     expect(screen.getByText('Docente ?tenant=tideo')).toBeInTheDocument()
   })
 
+  it('permite al administrador entrar a la vista docente', () => {
+    mocked.role = 'admin'
+    render(
+      <MemoryRouter initialEntries={['/docente']}>
+        <Routes>
+          <Route
+            path="/docente"
+            element={
+              <RoleGuard allowed="teacher">
+                <p>Vista docente del administrador</p>
+              </RoleGuard>
+            }
+          />
+          <Route path="/admin" element={<p>Admin</p>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(screen.getByText('Vista docente del administrador')).toBeInTheDocument()
+  })
+
   it('redirige a iniciar sesión cuando no hay sesión', () => {
     mocked.authStatus = 'anonymous'
     mocked.role = null

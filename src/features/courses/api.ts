@@ -81,15 +81,18 @@ export function useCourse(
       const versionIds = new Set((versionResult.data ?? []).map((version) => version.id))
       const canEdit = course.created_by === userId ||
         collaboratorResult.data?.role === 'editor'
+      // Propietarios y administradores pueden editar cualquier curso de su escuela.
+      const isManager = memberResult.data?.role === 'owner' ||
+        memberResult.data?.role === 'admin'
       return {
         course,
         versions: versionResult.data ?? [],
         modules: (moduleResult.data ?? []).filter((module) => versionIds.has(module.version_id)),
         lessons: (lessonResult.data ?? []).filter((lesson) => versionIds.has(lesson.version_id)),
-        canEdit: canEdit && (
+        canEdit: isManager || (canEdit && (
           memberResult.data?.role === 'instructor' ||
           (memberResult.data?.role === 'instructor_guest' && memberResult.data.can_author)
-        ),
+        )),
       }
     },
   })

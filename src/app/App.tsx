@@ -39,6 +39,7 @@ import {
   StudentCertificatesPage,
   VerifyCertificatePage,
 } from '@/features/certificates'
+import { ClientsPage } from '@/features/clients'
 import { supabase } from '@/lib/supabase'
 import { applyBrand } from '@/lib/theme'
 import { resolveTenant, type TenantLocation } from '@/lib/tenant'
@@ -314,7 +315,9 @@ function TenantView({ tenant }: { tenant: TenantLocation }) {
                             ? <StudentCertificatesPage />
                             : (role === 'teacher' || role === 'admin') && key === 'certificates'
                               ? <SignersPage />
-                              : <PlaceholderPage role={role} name={key} />
+                              : role === 'admin' && key === 'clients'
+                                ? <ClientsPage />
+                                : <PlaceholderPage role={role} name={key} />
                 }
               />
             ))}

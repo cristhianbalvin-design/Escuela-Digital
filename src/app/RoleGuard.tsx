@@ -30,7 +30,8 @@ export function RoleGuard({
   if (role === null) {
     return <Navigate to={`/iniciar-sesion${location.search}`} replace />
   }
-  if (role !== allowed) {
+  // Propietarios y administradores también pueden usar la vista docente.
+  if (role !== allowed && !(role === 'admin' && allowed === 'teacher')) {
     return <Navigate to={`${rolePath[role]}${location.search}`} replace />
   }
 

@@ -63,6 +63,14 @@ export function RoleLayout({ role }: { role: Role }) {
                 {t('selectSchool')}
               </NavLink>
             )}
+          {supabase && access.role === 'admin' && (role === 'admin' || role === 'teacher') && (
+            <NavLink
+              to={`${rolePath[role === 'admin' ? 'teacher' : 'admin']}${location.search}`}
+              className="inline-flex min-h-11 items-center rounded-control border border-border px-3 text-sm font-semibold hover:bg-brand-soft"
+            >
+              {role === 'admin' ? t('switchToTeacher') : t('switchToAdmin')}
+            </NavLink>
+          )}
           <Button variant="ghost" aria-label={t('search')} className="px-3">
             <Search size={20} />
           </Button>

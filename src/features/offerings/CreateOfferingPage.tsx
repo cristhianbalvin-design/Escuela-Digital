@@ -95,6 +95,7 @@ export function CreateOfferingPage() {
                 {form.formState.errors.clientId.message}
               </p>
             )}
+            <p className="text-sm text-text-muted">{t('teacherOfferings.clientHint')}</p>
             <Input label={t('teacherOfferings.offeringTitle')}
               error={form.formState.errors.title?.message}
               {...form.register('title')} />
