@@ -2,11 +2,21 @@ import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Skeleton } from '@/components/ui'
 import {
-  openResource, useDeleteResource, useLessonResources, useUploadResources,
+  openResource, useDeleteResource, useLessonResources, useOfferingResourceMarks,
+  useSetResourceMark, useUploadResources,
 } from './resources-api'
 import {
-  ALLOWED_EXTENSIONS, fileProblem, formatBytes, MAX_RESOURCE_BYTES,
+  ALLOWED_EXTENSIONS, fileProblem, formatBytes, formatMarkDate, isPastDate, markProgress,
+  MAX_RESOURCE_BYTES, stateOf, toggleMark, type ResourceMark,
 } from './resources-utils'
+
+/** Seguimiento por edición: casillas "Enviado" y "Usado en clase" (solo equipo docente). */
+export type ResourceTracking = {
+  offeringId: string
+  closed: boolean
+  pendingOnly: boolean
+  sessionDate?: string | null
+}
 
 type Props = {
   lessonId: string
@@ -14,15 +24,18 @@ type Props = {
   /** Solo hacen falta para subir archivos (modo docente). */
   tenantId?: string
   versionId?: string
+  tracking?: ResourceTracking
 }
 
-export function LessonResources({ lessonId, tenantId, versionId, editable }: Props) {
+export function LessonResources({ lessonId, tenantId, versionId, editable, tracking }: Props) {
   const { t } = useTranslation()
   const list = useLessonResources(lessonId)
   const upload = useUploadResources({
     tenantId: tenantId ?? '', versionId: versionId ?? '', lessonId,
   })
   const remove = useDeleteResource(lessonId)
+  const marksQuery = useOfferingResourceMarks(tracking?.offeringId)
+  const setMark = useSetResourceMark(tracking?.offeringId ?? '')
   const input = useRef<HTMLInputElement>(null)
   const [message, setMessage] = useState('')
 
@@ -61,16 +74,54 @@ export function LessonResources({ lessonId, tenantId, versionId, editable }: Pro
   if (list.isPending) return <Skeleton className="h-10" />
   const items = list.data ?? []
   if (!editable && items.length === 0) return null
+  const marks = new Map<string, ResourceMark>(
+    (marksQuery.data ?? []).map((mark) => [mark.resource_id, mark]),
+  )
+  const progress = markProgress(items.map((item) => item.id), marks)
+  const visible = tracking?.pendingOnly
+    ? items.filter((item) => !stateOf(marks.get(item.id)).used)
+    : items
+  const overdue = !!tracking && isPastDate(tracking.sessionDate) && items.length > 0 && !progress.done
+
+  function onToggle(resourceId: string, field: 'shared' | 'used', checked: boolean) {
+    if (!tracking) return
+    setMessage('')
+    setMark.mutate(
+      { resourceId, state: toggleMark(stateOf(marks.get(resourceId)), field, checked) },
+      { onError: () => setMessage(t('resources.markError')) },
+    )
+  }
 
   return (
     <section className="grid gap-2" aria-label={t('resources.title')}>
-      <h4 className="text-sm font-semibold">{t('resources.title')}</h4>
+      <h4 className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+        {t('resources.title')}
+        {tracking && progress.total > 0 && (
+          <span className="text-xs font-normal text-text-muted">
+            {progress.done && '✓ '}
+            {t('resources.progress', {
+              shared: progress.shared, used: progress.used, total: progress.total,
+            })}
+          </span>
+        )}
+      </h4>
+      {overdue && (
+        <p className="text-sm text-warning">{t('resources.overdue')}</p>
+      )}
+      {tracking && marksQuery.isError && (
+        <p role="alert" className="text-sm text-error">{t('resources.marksLoadError')}</p>
+      )}
       {list.isError && <p role="alert" className="text-sm text-error">{t('resources.loadError')}</p>}
       {items.length === 0 ? (
         <p className="text-sm text-text-muted">{t('resources.empty')}</p>
+      ) : visible.length === 0 ? (
+        <p className="text-sm text-text-muted">{t('resources.allUsed')}</p>
       ) : (
         <ul className="grid gap-1 text-sm">
-          {items.map((item) => (
+          {visible.map((item) => {
+            const mark = marks.get(item.id)
+            const state = stateOf(mark)
+            return (
             <li key={item.id}
               className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-border px-3 py-2">
               <span className="min-w-0 break-words">
@@ -79,6 +130,32 @@ export function LessonResources({ lessonId, tenantId, versionId, editable }: Pro
                   <span className="text-text-muted"> · {formatBytes(item.size_bytes)}</span>
                 )}
               </span>
+              {tracking && (
+                <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" className="size-4" checked={state.shared}
+                      disabled={tracking.closed || marksQuery.isPending}
+                      onChange={(event) => onToggle(item.id, 'shared', event.target.checked)} />
+                    <span>
+                      {t('resources.shared')}
+                      {mark?.shared_at && (
+                        <span className="text-text-muted"> {formatMarkDate(mark.shared_at)}</span>
+                      )}
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" className="size-4" checked={state.used}
+                      disabled={tracking.closed || marksQuery.isPending}
+                      onChange={(event) => onToggle(item.id, 'used', event.target.checked)} />
+                    <span>
+                      {t('resources.used')}
+                      {mark?.used_at && (
+                        <span className="text-text-muted"> {formatMarkDate(mark.used_at)}</span>
+                      )}
+                    </span>
+                  </label>
+                </span>
+              )}
               <span className="flex gap-2">
                 <Button variant="secondary" onClick={() => void onOpen(item.storage_path)}>
                   {t('resources.download')}
@@ -97,7 +174,8 @@ export function LessonResources({ lessonId, tenantId, versionId, editable }: Pro
                 )}
               </span>
             </li>
-          ))}
+            )
+          })}
         </ul>
       )}
       {editable && (

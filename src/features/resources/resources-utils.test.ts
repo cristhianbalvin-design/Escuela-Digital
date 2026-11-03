@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  fileProblem, formatBytes, kindOf, MAX_RESOURCE_BYTES, resourcePath, safeFileName,
+  fileProblem, formatBytes, formatMarkDate, isPastDate, kindOf, markProgress, MAX_RESOURCE_BYTES,
+  resourcePath, safeFileName, stateOf, toggleMark, type ResourceMark,
 } from './resources-utils'
 
 describe('safeFileName', () => {
@@ -38,5 +39,41 @@ describe('formatBytes', () => {
     expect(formatBytes(500)).toBe('500 B')
     expect(formatBytes(2048)).toBe('2 KB')
     expect(formatBytes(5 * 1024 * 1024)).toBe('5.0 MB')
+  })
+})
+
+describe('marcas de material', () => {
+  const marks = new Map<string, ResourceMark>([
+    ['a', { resource_id: 'a', shared_at: '2026-11-01T15:00:00Z', used_at: '2026-11-02T15:00:00Z' }],
+    ['b', { resource_id: 'b', shared_at: '2026-11-01T15:00:00Z', used_at: null }],
+  ])
+  it('lee el estado de una marca', () => {
+    expect(stateOf(marks.get('a'))).toEqual({ shared: true, used: true })
+    expect(stateOf(marks.get('b'))).toEqual({ shared: true, used: false })
+    expect(stateOf(undefined)).toEqual({ shared: false, used: false })
+  })
+  it('usado implica enviado', () => {
+    expect(toggleMark({ shared: false, used: false }, 'used', true)).toEqual({ shared: true, used: true })
+  })
+  it('quitar enviado quita también usado', () => {
+    expect(toggleMark({ shared: true, used: true }, 'shared', false)).toEqual({ shared: false, used: false })
+  })
+  it('desmarcar usado conserva enviado y marcar enviado conserva usado', () => {
+    expect(toggleMark({ shared: true, used: true }, 'used', false)).toEqual({ shared: true, used: false })
+    expect(toggleMark({ shared: true, used: true }, 'shared', true)).toEqual({ shared: true, used: true })
+  })
+  it('cuenta el progreso por sesión', () => {
+    expect(markProgress(['a', 'b', 'c'], marks)).toEqual({ total: 3, shared: 2, used: 1, done: false })
+    expect(markProgress(['a'], marks).done).toBe(true)
+    expect(markProgress([], marks).done).toBe(false)
+  })
+  it('detecta fechas pasadas en hora de Lima', () => {
+    const now = new Date('2026-11-04T03:00:00Z') // 3 de noviembre, 22:00 en Lima
+    expect(isPastDate('2026-11-02', now)).toBe(true)
+    expect(isPastDate('2026-11-03', now)).toBe(false)
+    expect(isPastDate(null, now)).toBe(false)
+  })
+  it('formatea la fecha de la marca', () => {
+    expect(formatMarkDate('2026-11-03T15:00:00Z')).toBe('03/11')
   })
 })

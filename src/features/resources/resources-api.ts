@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import {
-  kindOf, resourcePath, resourcesSchema, type LessonResource,
+  kindOf, marksSchema, resourcePath, resourcesSchema,
+  type LessonResource, type MarkState, type ResourceMark,
 } from './resources-utils'
 
 const BUCKET = 'lesson-resources'
@@ -80,4 +81,54 @@ export async function openResource(path: string): Promise<void> {
     .createSignedUrl(path, 60 * 60)
   if (error) throw error
   window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+}
+
+export function useOfferingResourceMarks(offeringId: string | undefined) {
+  return useQuery({
+    queryKey: ['offering-resource-marks', offeringId],
+    enabled: !!supabase && !!offeringId,
+    queryFn: async (): Promise<ResourceMark[]> => {
+      const { data, error } = await client().rpc('get_offering_resource_marks', {
+        p_offering_id: offeringId!,
+      })
+      if (error) throw error
+      return marksSchema.parse(data)
+    },
+  })
+}
+
+export function useSetResourceMark(offeringId: string) {
+  const cache = useQueryClient()
+  const key = ['offering-resource-marks', offeringId]
+  return useMutation({
+    mutationFn: async (input: { resourceId: string; state: MarkState }) => {
+      const { error } = await client().rpc('set_offering_resource_mark', {
+        p_offering_id: offeringId,
+        p_resource_id: input.resourceId,
+        p_shared: input.state.shared,
+        p_used: input.state.used,
+      })
+      if (error) throw error
+    },
+    // La casilla responde al instante; si falla, se vuelve a leer el estado real.
+    onMutate: async (input) => {
+      await cache.cancelQueries({ queryKey: key })
+      const previous = cache.getQueryData<ResourceMark[]>(key)
+      const now = new Date().toISOString()
+      const rest = (previous ?? []).filter((mark) => mark.resource_id !== input.resourceId)
+      const old = (previous ?? []).find((mark) => mark.resource_id === input.resourceId)
+      cache.setQueryData<ResourceMark[]>(key, input.state.shared
+        ? [...rest, {
+          resource_id: input.resourceId,
+          shared_at: old?.shared_at ?? now,
+          used_at: input.state.used ? (old?.used_at ?? now) : null,
+        }]
+        : rest)
+      return { previous }
+    },
+    onError: (_error, _input, context) => {
+      if (context?.previous) cache.setQueryData(key, context.previous)
+    },
+    onSettled: () => cache.invalidateQueries({ queryKey: key }),
+  })
 }

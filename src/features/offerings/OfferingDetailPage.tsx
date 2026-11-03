@@ -6,6 +6,7 @@ import {
 } from '@/components/ui'
 import { LessonContent } from '@/features/courses/LessonContent'
 import { LessonResources } from '@/features/resources'
+import { useSchedule } from '@/features/schedule/schedule-api'
 import { useTenantAccess } from '@/features/tenants'
 import { readableError } from '@/features/courses/schemas'
 import { supabase } from '@/lib/supabase'
@@ -115,6 +116,9 @@ export function OfferingDetailPage() {
   const roster = useOfferingRoster(offeringId, tab === 'students')
   const candidates = useEnrollableStudents(offeringId, tab === 'students')
   const outline = useOutline(offeringId, tab === 'content')
+  const schedule = useSchedule(tab === 'content' ? offeringId : undefined)
+  const [pendingOnly, setPendingOnly] = useState(false)
+  const sessionDates = new Map((schedule.data ?? []).map((row) => [row.lesson_id, row.session_date]))
   const mutation = useOfferingAction(tenantId, offeringId)
   const enrollment = useEnrollStudents(tenantId, offeringId)
 
@@ -336,6 +340,11 @@ export function OfferingDetailPage() {
             <EmptyState title={t('teacherOfferings.noContent')} />
           ) : (
             <div className="grid gap-4">
+              <label className="flex w-fit items-center gap-2 text-sm">
+                <input type="checkbox" className="size-4" checked={pendingOnly}
+                  onChange={(event) => setPendingOnly(event.target.checked)} />
+                {t('resources.onlyPending')}
+              </label>
               {outlineModules(outline.data).map((module) => (
                 <Card key={module.id} className="grid gap-3">
                   <h2 className="font-bold">
@@ -362,7 +371,13 @@ export function OfferingDetailPage() {
                         {!lesson.locked && lesson.content !== undefined &&
                           <LessonContent content={lesson.content} />}
                         {!lesson.locked && (
-                          <LessonResources lessonId={lesson.id} editable={false} />
+                          <LessonResources lessonId={lesson.id} editable={false}
+                            tracking={offeringId ? {
+                              offeringId,
+                              closed: offering.status === 'finished' || offering.status === 'archived',
+                              pendingOnly,
+                              sessionDate: sessionDates.get(lesson.id) ?? null,
+                            } : undefined} />
                         )}
                       </li>
                     ))}
