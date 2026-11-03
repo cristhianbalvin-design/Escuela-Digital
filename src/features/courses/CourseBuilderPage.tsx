@@ -41,10 +41,14 @@ export function CourseBuilderPage() {
   const mutation = useCourseAction(tenantId, courseId)
   const [versionId, setVersionId] = useState('')
   const [notice, setNotice] = useState('')
+  const [contentMode, setContentMode] = useState(false)
   const data = query.data
   const version = data?.versions.find((item) => item.id === versionId) ?? data?.versions[0]
   const modules = (data?.modules ?? []).filter((item) => item.version_id === version?.id)
   const editable = !!data?.canEdit && version?.status === 'draft'
+  // Edición de contenido (textos y archivos) en una versión publicada, sin versión nueva.
+  const liveEditable = !!data?.canEdit && version?.status === 'published'
+  const contentEditable = liveEditable && contentMode
 
   async function run(action: Parameters<typeof mutation.mutateAsync>[0]) {
     setNotice('')
@@ -116,11 +120,19 @@ export function CourseBuilderPage() {
             kind: 'publish', versionId: version.id,
           })}>{t('teacherCourses.publish')}</Button>
         ) : data.canEdit && version.status !== 'draft' ? (
-          <Button disabled={mutation.isPending ||
-            data.versions.some((item) => item.status === 'draft')}
-            onClick={() => void run({ kind: 'draft', versionId: version.id })}>
-            {t('teacherCourses.newDraft')}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {liveEditable && (
+              <Button variant={contentMode ? 'primary' : 'secondary'}
+                onClick={() => setContentMode((current) => !current)}>
+                {contentMode ? t('teacherCourses.stopEditContent') : t('teacherCourses.editContent')}
+              </Button>
+            )}
+            <Button variant="secondary" disabled={mutation.isPending ||
+              data.versions.some((item) => item.status === 'draft')}
+              onClick={() => void run({ kind: 'draft', versionId: version.id })}>
+              {t('teacherCourses.newDraft')}
+            </Button>
+          </div>
         ) : null}
       </div>
       <label className="grid gap-1 text-sm font-semibold" htmlFor="course-version">
@@ -136,6 +148,11 @@ export function CourseBuilderPage() {
         </select>
       </label>
       {notice && <p role="status" className="text-sm">{notice}</p>}
+      {contentEditable && (
+        <p role="note" className="rounded-control border border-border p-3 text-sm">
+          {t('teacherCourses.editContentHint')}
+        </p>
+      )}
       <Card className="grid gap-4">
         <h2 className="text-lg font-bold">{t('teacherCourses.publishChecklist')}</h2>
         <p>{modules.some((module) => data.lessons.some((lesson) => lesson.module_id === module.id))
@@ -148,7 +165,8 @@ export function CourseBuilderPage() {
           const siblings = data.lessons.filter((lesson) => lesson.module_id === module.id)
           return (
             <ModuleEditor key={`${module.id}:${module.title}`} module={module}
-              lessons={siblings} editable={editable} pending={mutation.isPending}
+              lessons={siblings} editable={editable} contentEditable={contentEditable}
+              pending={mutation.isPending}
               onRename={(title) => void run({ kind: 'renameModule', id: module.id, title })}
               onDelete={() => void run({
                 kind: 'deleteModule', id: module.id, versionId: version.id,
@@ -184,12 +202,13 @@ export function CourseBuilderPage() {
 }
 
 function ModuleEditor({
-  module, lessons, editable, pending, onRename, onDelete, onMove,
+  module, lessons, editable, contentEditable, pending, onRename, onDelete, onMove,
   canUp, canDown, onAddLesson, onSaveLesson, onDeleteLesson, onMoveLesson,
 }: {
   module: Module
   lessons: Lesson[]
   editable: boolean
+  contentEditable: boolean
   pending: boolean
   onRename: (title: string) => void
   onDelete: () => void
@@ -227,7 +246,7 @@ function ModuleEditor({
         {lessons.map((lesson, index) => (
           <LessonEditor key={`${lesson.id}:${lesson.title}`} lesson={lesson}
             versionId={module.version_id}
-            editable={editable} pending={pending}
+            editable={editable} contentEditable={contentEditable} pending={pending}
             canUp={index > 0} canDown={index < lessons.length - 1}
             onSave={(newTitle, content) => onSaveLesson(lesson, newTitle, content)}
             onDelete={() => onDeleteLesson(lesson)}
@@ -260,11 +279,12 @@ function activityId(lesson: Lesson): string | null {
 }
 
 function LessonEditor({
-  lesson, versionId, editable, pending, canUp, canDown, onSave, onDelete, onMove,
+  lesson, versionId, editable, contentEditable, pending, canUp, canDown, onSave, onDelete, onMove,
 }: {
   lesson: Lesson
   versionId: string
   editable: boolean
+  contentEditable: boolean
   pending: boolean
   canUp: boolean
   canDown: boolean
@@ -276,7 +296,8 @@ function LessonEditor({
   const [title, setTitle] = useState(lesson.title)
   const initialText = readingText(lesson.content)
   const [text, setText] = useState(initialText ?? '')
-  const canEditContent = editable && lesson.type === 'reading' && initialText !== null
+  const canEditContent = (editable || contentEditable)
+    && lesson.type === 'reading' && initialText !== null
 
   return (
     <div className="grid gap-3 rounded-control border border-border p-4">
@@ -314,7 +335,7 @@ function LessonEditor({
         <LessonContent content={lesson.content} />
       )}
       <LessonResources lessonId={lesson.id} tenantId={lesson.tenant_id}
-        versionId={lesson.version_id} editable={editable} />
+        versionId={lesson.version_id} editable={editable || contentEditable} />
       {editable && (
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" disabled={pending || !canUp}
