@@ -128,7 +128,8 @@ async function importRow(
         const created = await admin.auth.admin.createUser({
           email: `${PLACEHOLDER_PREFIX}${token}@${PLACEHOLDER_DOMAIN}`,
           email_confirm: true,
-          password: `${crypto.randomUUID()}${crypto.randomUUID()}`,
+          // Aleatoria y nunca se usa para entrar; el sufijo cumple la política (minúscula, mayúscula, número y símbolo).
+          password: `${crypto.randomUUID()}${crypto.randomUUID()}Aa1!`,
           user_metadata: { full_name: row.full_name, placeholder: true },
         })
         if (created.error || !created.data.user) {
