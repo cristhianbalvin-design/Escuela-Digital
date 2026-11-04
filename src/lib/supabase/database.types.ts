@@ -1881,6 +1881,12 @@ export type Database = {
         Args: { p_client_id?: string; p_days?: number; p_email: string; p_role: string; p_tenant_id: string }
         Returns: Json
       }
+      can_issue_certificates: { Args: { p_offering_id: string }; Returns: boolean }
+      set_school_member_access: {
+        Args: { p_can_issue?: boolean; p_role?: string; p_tenant_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      list_tenant_issuable: { Args: { p_tenant_id: string }; Returns: Json }
       list_school_people: { Args: { p_tenant_id: string }; Returns: Json }
       set_school_member_status: {
         Args: { p_status: string; p_tenant_id: string; p_user_id: string }

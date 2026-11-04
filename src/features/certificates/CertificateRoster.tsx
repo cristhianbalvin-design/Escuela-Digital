@@ -28,8 +28,8 @@ function statusKey(row: OfferingCertificate): string {
 }
 
 export function CertificateRoster({
-  offeringId, rows,
-}: { offeringId: string; rows: OfferingCertificate[] }) {
+  offeringId, rows, canIssue,
+}: { offeringId: string; rows: OfferingCertificate[]; canIssue: boolean }) {
   const { t } = useTranslation()
   const issue = useIssueCertificate(offeringId)
   const render = useRenderCertificate(offeringId)
@@ -117,7 +117,7 @@ export function CertificateRoster({
                 </td>
                 <td className="py-3">
                   <div className="flex flex-wrap gap-2">
-                    {!certificate && row.completion.met && (
+                    {canIssue && !certificate && row.completion.met && (
                       <Button disabled={issue.isPending}
                         onClick={() => void run(() => issue.mutateAsync(row.enrollment_id))}>
                         {t('certificates.issue')}
@@ -132,19 +132,19 @@ export function CertificateRoster({
                         {t('certificates.download')}
                       </Button>
                     )}
-                    {certificate && retryable && (
+                    {canIssue && certificate && retryable && (
                       <Button variant="secondary" disabled={render.isPending}
                         onClick={() => void run(() => render.mutateAsync(certificate.id))}>
                         {t('certificates.retryRender')}
                       </Button>
                     )}
-                    {certificate && (certificate.status === 'issued' || certificate.status === 'pending_render') && (
+                    {canIssue && certificate && (certificate.status === 'issued' || certificate.status === 'pending_render') && (
                       <Button variant="destructive"
                         onClick={() => setDialog({ kind: 'revoke', certificateId: certificate.id })}>
                         {t('certificates.revoke')}
                       </Button>
                     )}
-                    {certificate && (certificate.status === 'issued' || certificate.status === 'revoked') && (
+                    {canIssue && certificate && (certificate.status === 'issued' || certificate.status === 'revoked') && (
                       <Button variant="secondary"
                         onClick={() => setDialog({ kind: 'reissue', certificateId: certificate.id })}>
                         {t('certificates.reissue')}

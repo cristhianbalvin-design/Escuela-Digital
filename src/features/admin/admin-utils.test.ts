@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  assignmentsByOffering, availableInstructors, certificateStatusKey, filterByText,
+  assignmentsByOffering, availableInstructors, certificateStatusKey, filterByText, groupIssuables,
   filterOfferings, NO_INSTRUCTOR, personName, type Assignment, type Instructor,
 } from './admin-utils'
 
@@ -57,5 +57,16 @@ describe('utilidades', () => {
     expect(certificateStatusKey('revoked')).toBe('revoked')
     expect(certificateStatusKey('reissued')).toBe('reissued')
     expect(certificateStatusKey('issued')).toBe('issued')
+  })
+})
+
+describe('groupIssuables', () => {
+  it('agrupa por edición conservando el orden', () => {
+    const row = (enrollment: string, offering: string) => ({
+      enrollment_id: enrollment, offering_id: offering, offering_title: `Ed ${offering}`,
+      client_name: 'UDEP', full_name: enrollment, email: `${enrollment}@x.com`,
+    })
+    const groups = groupIssuables([row('a', '1'), row('b', '2'), row('c', '1')])
+    expect(groups.map((g) => [g.offeringId, g.rows.length])).toEqual([['1', 2], ['2', 1]])
   })
 })

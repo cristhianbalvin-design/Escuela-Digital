@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Button, Card, Skeleton } from '@/components/ui'
 import { useOutline } from '@/features/offerings/api'
-import { useOfferingCertificates } from './certificates-api'
+import { useCanIssueCertificates, useOfferingCertificates } from './certificates-api'
 import { CertificateRuleForm } from './CertificateRuleForm'
 import { CertificateRoster } from './CertificateRoster'
 import { SignersPicker } from './SignersPicker'
@@ -10,6 +10,7 @@ export function CertificatesTab({ offeringId }: { offeringId: string }) {
   const { t } = useTranslation()
   const outline = useOutline(offeringId, true)
   const certificates = useOfferingCertificates(offeringId)
+  const canIssue = useCanIssueCertificates(offeringId)
 
   if (certificates.isPending) return <Skeleton className="h-48" />
   if (certificates.isError) {
@@ -34,7 +35,11 @@ export function CertificatesTab({ offeringId }: { offeringId: string }) {
         <h2 id="certificate-roster-title" className="text-xl font-bold">
           {t('certificates.rosterTitle')}
         </h2>
-        <CertificateRoster offeringId={offeringId} rows={certificates.data} />
+        {canIssue.data === false && (
+          <p className="text-text-muted">{t('certificates.issueByCoordinator')}</p>
+        )}
+        <CertificateRoster offeringId={offeringId} rows={certificates.data}
+          canIssue={canIssue.data === true} />
       </section>
     </div>
   )

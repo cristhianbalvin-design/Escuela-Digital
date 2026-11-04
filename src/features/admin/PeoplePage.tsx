@@ -5,11 +5,11 @@ import { useClients } from '@/features/clients/clients-api'
 import { useTenantAccess } from '@/features/tenants'
 import {
   useInvitePerson, usePlaceholderStudents, useRevokeInvitation, useSchoolPeople,
-  useSetMemberStatus, useSetStudentEmail,
+  useSetMemberAccess, useSetMemberStatus, useSetStudentEmail,
 } from './people-api'
 import {
-  INVITE_ROLES, inviteLink, invitationsOf, isValidEmail, memberName, membersOf,
-  peopleErrorKey, type PeopleTab,
+  EDITABLE_ROLES, INVITE_ROLES, canEditMember, inviteLink, invitationsOf, isAcademicCoordinator,
+  isValidEmail, memberName, membersOf, peopleErrorKey, type PeopleTab,
 } from './people-utils'
 
 const selectClass = 'min-h-11 w-full min-w-0 rounded-control border border-border bg-transparent px-2'
@@ -21,7 +21,8 @@ function formatDate(value: string): string {
 
 export function PeoplePage() {
   const { t } = useTranslation()
-  const active = useTenantAccess().active
+  const access = useTenantAccess()
+  const active = access.active
   const tenantId = active?.tenant_id
   const [tab, setTab] = useState<PeopleTab>('instructors')
 
@@ -39,21 +40,24 @@ export function PeoplePage() {
       </div>
       {tab === 'noEmail'
         ? <NoEmailPanel tenantId={tenantId} />
-        : <TeamPanel key={tab} tab={tab} tenantId={tenantId} tenantSlug={active?.slug ?? null} />}
+        : <TeamPanel key={tab} tab={tab} tenantId={tenantId} tenantSlug={active?.slug ?? null}
+          viewerIsOwner={active?.role === 'owner' || access.isPlatformAdmin} />}
     </section>
   )
 }
 
-function TeamPanel({ tab, tenantId, tenantSlug }: {
+function TeamPanel({ tab, tenantId, tenantSlug, viewerIsOwner }: {
   tab: Exclude<PeopleTab, 'noEmail'>
   tenantId: string | undefined
   tenantSlug: string | null
+  viewerIsOwner: boolean
 }) {
   const { t } = useTranslation()
   const people = useSchoolPeople(tenantId)
   const clients = useClients(tab === 'coordinators' ? tenantId : undefined)
   const invite = useInvitePerson(tenantId)
   const setStatus = useSetMemberStatus(tenantId)
+  const setAccess = useSetMemberAccess(tenantId)
   const revoke = useRevokeInvitation(tenantId)
   const roles = INVITE_ROLES[tab]
   const [email, setEmail] = useState('')
@@ -103,6 +107,15 @@ function TeamPanel({ tab, tenantId, tenantSlug }: {
     setMessage('')
     try {
       await setStatus.mutateAsync({ userId, status })
+    } catch (cause) {
+      setMessage(t(peopleErrorKey(cause)))
+    }
+  }
+
+  async function changeAccess(userId: string, change: { role?: string; canIssue?: boolean }) {
+    setMessage('')
+    try {
+      await setAccess.mutateAsync({ userId, ...change })
     } catch (cause) {
       setMessage(t(peopleErrorKey(cause)))
     }
@@ -168,6 +181,7 @@ function TeamPanel({ tab, tenantId, tenantSlug }: {
             </div>
           </div>
         )}
+        {tab === 'admins' && <p className="text-sm text-text-muted">{t('peopleViews.adminsHint')}</p>}
         <span role="status" className="text-sm text-text-muted">{message}</span>
       </Card>
 
@@ -194,10 +208,32 @@ function TeamPanel({ tab, tenantId, tenantSlug }: {
                           <p className="text-sm text-text-muted">{member.clients.join(', ')}</p>
                         )}
                       </div>
-                      <Badge status="neutral">{t(`peopleViews.role.${member.role}`)}</Badge>
+                      {canEditMember(member, viewerIsOwner) ? (
+                        <select aria-label={t('peopleViews.roleLabel')} value={member.role}
+                          disabled={setAccess.isPending}
+                          onChange={(event) => void changeAccess(member.user_id, { role: event.target.value })}
+                          className="min-h-11 rounded-control border border-border bg-transparent px-2 text-sm">
+                          {EDITABLE_ROLES.filter((item) => item !== 'admin' || viewerIsOwner).map((item) => (
+                            <option key={item} value={item}>{t(`peopleViews.role.${item}`)}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <Badge status="neutral">{t(`peopleViews.role.${member.role}`)}</Badge>
+                      )}
+                      {isAcademicCoordinator(member) && (
+                        <Badge status="info">{t('peopleViews.academicCoordinator')}</Badge>
+                      )}
                       <Badge status={member.status === 'active' ? 'success' : 'warning'}>
                         {t(`peopleViews.status.${member.status}`)}
                       </Badge>
+                      {canEditMember(member, viewerIsOwner) && member.role !== 'admin' && (
+                        <label className="flex min-h-11 items-center gap-2 text-sm">
+                          <input type="checkbox" checked={member.can_issue}
+                            disabled={setAccess.isPending}
+                            onChange={(event) => void changeAccess(member.user_id, { canIssue: event.target.checked })} />
+                          {t('peopleViews.canIssue')}
+                        </label>
+                      )}
                       {!locked && (
                         <Button variant="secondary" disabled={setStatus.isPending}
                           onClick={() => void changeStatus(member.user_id,

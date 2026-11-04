@@ -8,6 +8,7 @@ import { SignersPage } from '@/features/certificates'
 import { useTenantAccess } from '@/features/tenants'
 import { useTenantCertificates } from './admin-api'
 import { certificateStatusKey, filterByText } from './admin-utils'
+import { IssuePanel } from './IssuePanel'
 
 const BADGE: Record<string, Status> = {
   issued: 'success', revoked: 'error', reissued: 'neutral', generating: 'info',
@@ -17,7 +18,7 @@ export function AdminCertificatesPage() {
   const { t } = useTranslation()
   const { search } = useLocation()
   const tenantId = useTenantAccess().active?.tenant_id
-  const [tab, setTab] = useState<'issued' | 'signers'>('issued')
+  const [tab, setTab] = useState<'pending' | 'issued' | 'signers'>('pending')
   const [text, setText] = useState('')
   const [error, setError] = useState('')
   const query = useTenantCertificates(tab === 'issued' ? tenantId : undefined)
@@ -37,7 +38,7 @@ export function AdminCertificatesPage() {
     <section className="grid gap-4">
       <h1 className="font-heading text-2xl font-bold">{t('adminViews.certificates.title')}</h1>
       <div role="tablist" aria-label={t('adminViews.certificates.title')} className="flex flex-wrap gap-2">
-        {(['issued', 'signers'] as const).map((item) => (
+        {(['pending', 'issued', 'signers'] as const).map((item) => (
           <Button key={item} role="tab" aria-selected={tab === item}
             variant={tab === item ? 'primary' : 'secondary'} onClick={() => setTab(item)}>
             {t(`adminViews.certificates.tab.${item}`)}
@@ -45,7 +46,7 @@ export function AdminCertificatesPage() {
         ))}
       </div>
 
-      {tab === 'signers' ? <SignersPage /> : (
+      {tab === 'signers' ? <SignersPage /> : tab === 'pending' ? <IssuePanel tenantId={tenantId} /> : (
         <>
           <p className="text-text-muted">{t('adminViews.certificates.hint')}</p>
           <div className="max-w-md">

@@ -50,6 +50,21 @@ export function useSetMemberStatus(tenantId: string | undefined) {
   })
 }
 
+export function useSetMemberAccess(tenantId: string | undefined) {
+  const cache = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { userId: string; role?: string; canIssue?: boolean }) => {
+      const { error } = await client().rpc('set_school_member_access', {
+        p_tenant_id: tenantId!, p_user_id: input.userId,
+        ...(input.role !== undefined ? { p_role: input.role } : {}),
+        ...(input.canIssue !== undefined ? { p_can_issue: input.canIssue } : {}),
+      })
+      if (error) throw error
+    },
+    onSettled: () => cache.invalidateQueries({ queryKey: ['school-people', tenantId] }),
+  })
+}
+
 export function useRevokeInvitation(tenantId: string | undefined) {
   const cache = useQueryClient()
   return useMutation({

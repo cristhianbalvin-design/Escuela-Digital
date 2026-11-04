@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import {
-  adminCertificatesSchema, assignmentsSchema, instructorsSchema,
-  type AdminCertificate, type Assignment, type Instructor, type InstructorRole,
+  adminCertificatesSchema, assignmentsSchema, instructorsSchema, issuablesSchema,
+  type AdminCertificate, type Assignment, type Instructor, type InstructorRole, type Issuable,
 } from './admin-utils'
 
 function client() {
@@ -70,6 +70,18 @@ export function useTenantCertificates(tenantId: string | undefined) {
       })
       if (error) throw error
       return adminCertificatesSchema.parse(data)
+    },
+  })
+}
+
+export function useTenantIssuable(tenantId: string | undefined) {
+  return useQuery({
+    queryKey: ['tenant-issuable', tenantId],
+    enabled: !!supabase && !!tenantId,
+    queryFn: async (): Promise<Issuable[]> => {
+      const { data, error } = await client().rpc('list_tenant_issuable', { p_tenant_id: tenantId! })
+      if (error) throw error
+      return issuablesSchema.parse(data)
     },
   })
 }

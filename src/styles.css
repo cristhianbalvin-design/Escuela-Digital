@@ -125,3 +125,9 @@ button:disabled {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Las listas desplegables nativas heredaban texto claro sobre fondo blanco en modo oscuro. */
+select option {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}

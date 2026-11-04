@@ -6,6 +6,7 @@ export const memberSchema = z.object({
   full_name: z.string().nullable(),
   role: z.string(),
   status: z.string(),
+  can_issue: z.boolean().default(false),
   created_at: z.string(),
   clients: z.array(z.string()),
 })
@@ -89,4 +90,18 @@ export function peopleErrorKey(error: unknown): string {
   if (message.includes('ya pertenece')) return 'peopleViews.errors.alreadyMember'
   if (code === '23514') return 'peopleViews.errors.invalid'
   return 'peopleViews.errors.generic'
+}
+
+export const EDITABLE_ROLES = ['instructor', 'instructor_guest', 'admin'] as const
+
+/** ¿Se puede cambiar el rol o el permiso de esta persona desde la pantalla? */
+export function canEditMember(member: Pick<SchoolMember, 'role'>, viewerIsOwner: boolean): boolean {
+  if (member.role === 'owner' || member.role === 'client_coordinator') return false
+  if (member.role === 'admin') return viewerIsOwner
+  return true
+}
+
+/** Docente con permiso de emitir: lo mostramos como coordinador académico. */
+export function isAcademicCoordinator(member: Pick<SchoolMember, 'role' | 'can_issue'>): boolean {
+  return (member.role === 'instructor' || member.role === 'instructor_guest') && member.can_issue
 }

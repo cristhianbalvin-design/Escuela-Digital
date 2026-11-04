@@ -90,3 +90,28 @@ export function certificateStatusKey(status: string): 'issued' | 'revoked' | 're
   if (status === 'pending_render') return 'generating'
   return 'issued'
 }
+
+export const issuableSchema = z.object({
+  enrollment_id: z.string(),
+  offering_id: z.string(),
+  offering_title: z.string(),
+  client_name: z.string(),
+  full_name: z.string(),
+  email: z.string(),
+})
+export const issuablesSchema = z.array(issuableSchema)
+export type Issuable = z.infer<typeof issuableSchema>
+
+export type IssuableGroup = { offeringId: string; title: string; clientName: string; rows: Issuable[] }
+
+export function groupIssuables(rows: Issuable[]): IssuableGroup[] {
+  const groups = new Map<string, IssuableGroup>()
+  for (const row of rows) {
+    const current = groups.get(row.offering_id)
+    if (current) current.rows.push(row)
+    else groups.set(row.offering_id, {
+      offeringId: row.offering_id, title: row.offering_title, clientName: row.client_name, rows: [row],
+    })
+  }
+  return [...groups.values()]
+}

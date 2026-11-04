@@ -70,6 +70,26 @@ export async function downloadCertificate(pdfPath: string): Promise<void> {
   window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
 }
 
+/** Emite el certificado y genera el PDF; devuelve el error de generación si lo hubo. */
+export async function issueAndRender(enrollmentId: string): Promise<string | null> {
+  const { data, error } = await client().rpc('issue_certificate', { p_enrollment_id: enrollmentId })
+  check(error)
+  if (!data) throw new Error('No se pudo emitir el certificado.')
+  return tryRender(data)
+}
+
+export function useCanIssueCertificates(offeringId: string | undefined) {
+  return useQuery({
+    queryKey: ['certificates', 'can-issue', offeringId ?? ''],
+    enabled: !!supabase && !!offeringId,
+    queryFn: async (): Promise<boolean> => {
+      const { data, error } = await client().rpc('can_issue_certificates', { p_offering_id: offeringId! })
+      check(error)
+      return data === true
+    },
+  })
+}
+
 export function useOfferingCertificates(offeringId: string | undefined) {
   return useQuery({
     queryKey: keys.offering(offeringId ?? ''),

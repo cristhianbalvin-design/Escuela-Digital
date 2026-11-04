@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
-  inviteLink, invitationsOf, isValidEmail, memberName, membersOf, peopleErrorKey,
+  canEditMember, isAcademicCoordinator, inviteLink, invitationsOf, isValidEmail, memberName, membersOf, peopleErrorKey,
   type SchoolPeople,
 } from './people-utils'
 
 const people: SchoolPeople = {
   members: [
-    { user_id: 'a', email: 'a@x.com', full_name: 'Ana', role: 'instructor', status: 'active', created_at: '2026-01-01', clients: [] },
-    { user_id: 'b', email: 'b@x.com', full_name: null, role: 'client_coordinator', status: 'active', created_at: '2026-01-01', clients: ['UDEP'] },
-    { user_id: 'c', email: 'c@x.com', full_name: null, role: 'owner', status: 'active', created_at: '2026-01-01', clients: [] },
-    { user_id: 'd', email: 'd@x.com', full_name: null, role: 'instructor_guest', status: 'suspended', created_at: '2026-01-01', clients: [] },
+    { user_id: 'a', email: 'a@x.com', full_name: 'Ana', role: 'instructor', status: 'active', can_issue: false, created_at: '2026-01-01', clients: [] },
+    { user_id: 'b', email: 'b@x.com', full_name: null, role: 'client_coordinator', status: 'active', can_issue: false, created_at: '2026-01-01', clients: ['UDEP'] },
+    { user_id: 'c', email: 'c@x.com', full_name: null, role: 'owner', status: 'active', can_issue: false, created_at: '2026-01-01', clients: [] },
+    { user_id: 'd', email: 'd@x.com', full_name: null, role: 'instructor_guest', status: 'suspended', can_issue: true, created_at: '2026-01-01', clients: [] },
   ],
   invitations: [
     { id: '1', email: 'n@x.com', role: 'admin', client_name: null, expires_at: '2026-02-01', created_at: '2026-01-01', expired: false },
@@ -50,5 +50,19 @@ describe('people-utils', () => {
     expect(peopleErrorKey({ code: '23514', message: 'Esa persona ya pertenece a la escuela' })).toBe('peopleViews.errors.alreadyMember')
     expect(peopleErrorKey({ code: '23514', message: 'otro' })).toBe('peopleViews.errors.invalid')
     expect(peopleErrorKey(new Error('x'))).toBe('peopleViews.errors.generic')
+  })
+
+  it('decide quién puede editar a quién', () => {
+    expect(canEditMember({ role: 'owner' }, true)).toBe(false)
+    expect(canEditMember({ role: 'client_coordinator' }, true)).toBe(false)
+    expect(canEditMember({ role: 'admin' }, false)).toBe(false)
+    expect(canEditMember({ role: 'admin' }, true)).toBe(true)
+    expect(canEditMember({ role: 'instructor' }, false)).toBe(true)
+  })
+
+  it('reconoce al coordinador académico', () => {
+    expect(isAcademicCoordinator({ role: 'instructor', can_issue: true })).toBe(true)
+    expect(isAcademicCoordinator({ role: 'instructor', can_issue: false })).toBe(false)
+    expect(isAcademicCoordinator({ role: 'admin', can_issue: true })).toBe(false)
   })
 })
