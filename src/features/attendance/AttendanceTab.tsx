@@ -17,6 +17,7 @@ export function AttendanceTab({ offeringId }: { offeringId: string }) {
   const [selected, setSelected] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
+  const [view, setView] = useState<'sessions' | 'students'>('sessions')
 
   if (selected) {
     return <SessionSheet offeringId={offeringId} sessionId={selected}
@@ -66,7 +67,17 @@ export function AttendanceTab({ offeringId }: { offeringId: string }) {
         </div>
       </div>
 
-      {sessions.length === 0 ? (
+      <div role="tablist" aria-label={t('attendance.views')} className="flex flex-wrap gap-2">
+        {(['sessions', 'students'] as const).map((item) => (
+          <Button key={item} role="tab" aria-selected={view === item}
+            variant={view === item ? 'primary' : 'secondary'}
+            onClick={() => setView(item)}>
+            {t(item === 'sessions' ? 'attendance.tabSessions' : 'attendance.tabStudents')}
+          </Button>
+        ))}
+      </div>
+
+      {view === 'sessions' && (sessions.length === 0 ? (
         <EmptyState title={t('attendance.empty')} description={t('attendance.emptyHint')} />
       ) : (
         <ul className="grid gap-2">
@@ -98,9 +109,13 @@ export function AttendanceTab({ offeringId }: { offeringId: string }) {
             </li>
           ))}
         </ul>
+      ))}
+
+      {view === 'students' && (students.length === 0 || closed.length === 0) && (
+        <EmptyState title={t('attendance.summaryEmpty')} />
       )}
 
-      {students.length > 0 && closed.length > 0 && (
+      {view === 'students' && students.length > 0 && closed.length > 0 && (
         <section className="grid gap-2" aria-labelledby="attendance-matrix-title">
           <h3 id="attendance-matrix-title" className="text-lg font-bold">
             {t('attendance.summaryTitle')}
