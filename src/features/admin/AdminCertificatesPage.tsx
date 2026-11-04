@@ -14,7 +14,7 @@ const BADGE: Record<string, Status> = {
   issued: 'success', revoked: 'error', reissued: 'neutral', generating: 'info',
 }
 
-export function AdminCertificatesPage() {
+export function AdminCertificatesPage({ showSigners = true }: { showSigners?: boolean }) {
   const { t } = useTranslation()
   const { search } = useLocation()
   const tenantId = useTenantAccess().active?.tenant_id
@@ -38,7 +38,7 @@ export function AdminCertificatesPage() {
     <section className="grid gap-4">
       <h1 className="font-heading text-2xl font-bold">{t('adminViews.certificates.title')}</h1>
       <div role="tablist" aria-label={t('adminViews.certificates.title')} className="flex flex-wrap gap-2">
-        {(['pending', 'issued', 'signers'] as const).map((item) => (
+        {(showSigners ? (['pending', 'issued', 'signers'] as const) : (['pending', 'issued'] as const)).map((item) => (
           <Button key={item} role="tab" aria-selected={tab === item}
             variant={tab === item ? 'primary' : 'secondary'} onClick={() => setTab(item)}>
             {t(`adminViews.certificates.tab.${item}`)}

@@ -12,9 +12,13 @@ import type { Role } from '@/app/role'
 import {
   fetchIsPlatformAdmin,
   fetchMyTenants,
+  fetchMyViews,
   mapTenantRole,
+  NO_VIEWS,
   selectActiveTenant,
+  viewsFromRole,
   type MyTenant,
+  type MyViews,
 } from './membership'
 
 type AccessStatus = 'idle' | 'loading' | 'ready' | 'error'
@@ -26,6 +30,7 @@ type TenantAccess = {
   active: MyTenant | null
   isPlatformAdmin: boolean
   role: Role | null
+  views: MyViews
   retry: () => void
 }
 
@@ -40,7 +45,7 @@ export function TenantAccessProvider({
 }) {
   const auth = useAuth()
   const query = useQuery({
-    queryKey: ['tenant-access', auth.user?.id],
+    queryKey: ['tenant-access', auth.user?.id, location.host],
     enabled: !!supabase && auth.status === 'authenticated' && !!auth.user,
     queryFn: async () => {
       if (!supabase || !auth.user) throw new Error('Sesión no disponible')
@@ -49,7 +54,16 @@ export function TenantAccessProvider({
         fetchMyTenants(supabase),
         fetchIsPlatformAdmin(supabase, auth.user.id),
       ])
-      return { memberships, isPlatformAdmin }
+      const activeTenant = selectActiveTenant(location, memberships)
+      let views: MyViews | null = null
+      if (activeTenant) {
+        try {
+          views = await fetchMyViews(supabase, activeTenant.tenant_id)
+        } catch {
+          views = null
+        }
+      }
+      return { memberships, isPlatformAdmin, views }
     },
     retry: 1,
   })
@@ -80,6 +94,9 @@ export function TenantAccessProvider({
           ? mapTenantRole(active.role)
           : null
 
+  const views: MyViews =
+    status !== 'ready' ? NO_VIEWS : (query.data?.views ?? viewsFromRole(role))
+
   return (
     <TenantAccessContext.Provider
       value={{
@@ -89,6 +106,7 @@ export function TenantAccessProvider({
         active,
         isPlatformAdmin,
         role,
+        views,
         retry: () => void query.refetch(),
       }}
     >

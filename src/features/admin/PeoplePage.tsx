@@ -207,6 +207,9 @@ function TeamPanel({ tab, tenantId, tenantSlug, viewerIsOwner }: {
                         {member.clients.length > 0 && (
                           <p className="text-sm text-text-muted">{member.clients.join(', ')}</p>
                         )}
+                        {tab === 'instructors' && (
+                          <p className="text-sm text-text-muted">{t('peopleViews.teaches', { count: member.teaches })}</p>
+                        )}
                       </div>
                       {canEditMember(member, viewerIsOwner) ? (
                         <select aria-label={t('peopleViews.roleLabel')} value={member.role}
@@ -219,6 +222,9 @@ function TeamPanel({ tab, tenantId, tenantSlug, viewerIsOwner }: {
                         </select>
                       ) : (
                         <Badge status="neutral">{t(`peopleViews.role.${member.role}`)}</Badge>
+                      )}
+                      {member.teaches > 0 && member.role !== 'instructor' && member.role !== 'instructor_guest' && (
+                        <Badge status="info">{t('peopleViews.teachesBadge', { count: member.teaches })}</Badge>
                       )}
                       {isAcademicCoordinator(member) && (
                         <Badge status="info">{t('peopleViews.academicCoordinator')}</Badge>

@@ -26,12 +26,7 @@ export const navigation: Record<Role, NavItem[]> = {
     { key: 'certificates', segment: 'certificados' },
     { key: 'profile', segment: 'perfil' },
   ],
-  coordinator: [
-    { key: 'summary', segment: 'resumen' },
-    { key: 'students', segment: 'alumnos' },
-    { key: 'offerings', segment: 'ediciones' },
-    { key: 'certificates', segment: 'certificados' },
-    { key: 'reports', segment: 'reportes' },
-  ],
+  // Pendientes de construir: resumen, alumnos, ediciones y reportes.
+  coordinator: [{ key: 'certificates', segment: 'certificados' }],
   platform: [{ key: 'home', segment: 'inicio' }],
 }

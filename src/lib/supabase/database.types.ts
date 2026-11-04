@@ -1881,6 +1881,7 @@ export type Database = {
         Args: { p_client_id?: string; p_days?: number; p_email: string; p_role: string; p_tenant_id: string }
         Returns: Json
       }
+      get_my_views: { Args: { p_tenant_id: string }; Returns: Json }
       can_issue_certificates: { Args: { p_offering_id: string }; Returns: boolean }
       set_school_member_access: {
         Args: { p_can_issue?: boolean; p_role?: string; p_tenant_id: string; p_user_id: string }

@@ -31,7 +31,10 @@ export function RoleGuard({
     return <Navigate to={`/iniciar-sesion${location.search}`} replace />
   }
   // Propietarios y administradores también pueden usar la vista docente.
-  if (role !== allowed && !(role === 'admin' && allowed === 'teacher')) {
+  const extraView = supabase && (allowed === 'admin' || allowed === 'teacher' || allowed === 'coordinator')
+    ? access.views?.[allowed] === true
+    : false
+  if (role !== allowed && !(role === 'admin' && allowed === 'teacher') && !extraView) {
     return <Navigate to={`${rolePath[role]}${location.search}`} replace />
   }
 

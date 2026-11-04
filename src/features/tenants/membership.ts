@@ -75,3 +75,29 @@ export function selectActiveTenant(
     ) ?? null
   )
 }
+
+export const viewsSchema = z.object({
+  admin: z.boolean(),
+  teacher: z.boolean(),
+  coordinator: z.boolean(),
+})
+export type MyViews = z.infer<typeof viewsSchema>
+export const NO_VIEWS: MyViews = { admin: false, teacher: false, coordinator: false }
+
+/** Vistas que puede usar la persona en la escuela activa (administrador, docente, coordinación). */
+export async function fetchMyViews(
+  client: SupabaseClient<Database>,
+  tenantId: string,
+): Promise<MyViews> {
+  const { data, error } = await client.rpc('get_my_views', { p_tenant_id: tenantId })
+  if (error) throw error
+  return viewsSchema.parse(data)
+}
+
+/** Vistas mínimas según el rol, por si no se pudo consultar la base. */
+export function viewsFromRole(role: Role | null): MyViews {
+  if (role === 'admin') return { admin: true, teacher: true, coordinator: false }
+  if (role === 'teacher') return { admin: false, teacher: true, coordinator: false }
+  if (role === 'coordinator') return { admin: false, teacher: false, coordinator: true }
+  return NO_VIEWS
+}

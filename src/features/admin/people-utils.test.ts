@@ -6,10 +6,10 @@ import {
 
 const people: SchoolPeople = {
   members: [
-    { user_id: 'a', email: 'a@x.com', full_name: 'Ana', role: 'instructor', status: 'active', can_issue: false, created_at: '2026-01-01', clients: [] },
-    { user_id: 'b', email: 'b@x.com', full_name: null, role: 'client_coordinator', status: 'active', can_issue: false, created_at: '2026-01-01', clients: ['UDEP'] },
-    { user_id: 'c', email: 'c@x.com', full_name: null, role: 'owner', status: 'active', can_issue: false, created_at: '2026-01-01', clients: [] },
-    { user_id: 'd', email: 'd@x.com', full_name: null, role: 'instructor_guest', status: 'suspended', can_issue: true, created_at: '2026-01-01', clients: [] },
+    { user_id: 'a', email: 'a@x.com', full_name: 'Ana', role: 'instructor', status: 'active', can_issue: false, teaches: 0, created_at: '2026-01-01', clients: [] },
+    { user_id: 'b', email: 'b@x.com', full_name: null, role: 'client_coordinator', status: 'active', can_issue: false, teaches: 0, created_at: '2026-01-01', clients: ['UDEP'] },
+    { user_id: 'c', email: 'c@x.com', full_name: null, role: 'owner', status: 'active', can_issue: false, teaches: 0, created_at: '2026-01-01', clients: [] },
+    { user_id: 'd', email: 'd@x.com', full_name: null, role: 'instructor_guest', status: 'suspended', can_issue: true, teaches: 0, created_at: '2026-01-01', clients: [] },
   ],
   invitations: [
     { id: '1', email: 'n@x.com', role: 'admin', client_name: null, expires_at: '2026-02-01', created_at: '2026-01-01', expired: false },
@@ -22,6 +22,17 @@ describe('people-utils', () => {
     expect(membersOf(people, 'instructors').map((m) => m.user_id)).toEqual(['a', 'd'])
     expect(membersOf(people, 'coordinators').map((m) => m.user_id)).toEqual(['b'])
     expect(membersOf(people, 'admins').map((m) => m.user_id)).toEqual(['c'])
+  })
+
+  it('un administrador que dicta aparece también entre los docentes', () => {
+    const withAdmin: SchoolPeople = {
+      ...people,
+      members: [...people.members,
+        { user_id: 'e', email: 'e@x.com', full_name: null, role: 'admin', status: 'active', can_issue: true, teaches: 2, created_at: '2026-01-01', clients: [] },
+        { user_id: 'f', email: 'f@x.com', full_name: null, role: 'admin', status: 'active', can_issue: true, teaches: 0, created_at: '2026-01-01', clients: [] }],
+    }
+    expect(membersOf(withAdmin, 'instructors').map((m) => m.user_id)).toEqual(['a', 'd', 'e'])
+    expect(membersOf(withAdmin, 'admins').map((m) => m.user_id)).toEqual(['c', 'e', 'f'])
   })
 
   it('agrupa invitaciones por pestaña', () => {
@@ -63,6 +74,7 @@ describe('people-utils', () => {
   it('reconoce al coordinador académico', () => {
     expect(isAcademicCoordinator({ role: 'instructor', can_issue: true })).toBe(true)
     expect(isAcademicCoordinator({ role: 'instructor', can_issue: false })).toBe(false)
-    expect(isAcademicCoordinator({ role: 'admin', can_issue: true })).toBe(false)
+    expect(isAcademicCoordinator({ role: 'admin', can_issue: true })).toBe(true)
+    expect(isAcademicCoordinator({ role: 'client_coordinator', can_issue: true })).toBe(false)
   })
 })

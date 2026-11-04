@@ -7,6 +7,7 @@ export const memberSchema = z.object({
   role: z.string(),
   status: z.string(),
   can_issue: z.boolean().default(false),
+  teaches: z.number().default(0),
   created_at: z.string(),
   clients: z.array(z.string()),
 })
@@ -65,7 +66,9 @@ export function isValidEmail(value: string): boolean {
 }
 
 export function membersOf(people: SchoolPeople, tab: Exclude<PeopleTab, 'noEmail'>): SchoolMember[] {
-  return people.members.filter((member) => TAB_ROLES[tab].includes(member.role))
+  return people.members.filter((member) => TAB_ROLES[tab].includes(member.role) ||
+    // Un administrador que dicta también aparece entre los docentes.
+    (tab === 'instructors' && (member.role === 'admin' || member.role === 'owner') && member.teaches > 0))
 }
 
 export function invitationsOf(people: SchoolPeople, tab: Exclude<PeopleTab, 'noEmail'>): PendingInvitation[] {
@@ -103,5 +106,6 @@ export function canEditMember(member: Pick<SchoolMember, 'role'>, viewerIsOwner:
 
 /** Docente con permiso de emitir: lo mostramos como coordinador académico. */
 export function isAcademicCoordinator(member: Pick<SchoolMember, 'role' | 'can_issue'>): boolean {
-  return (member.role === 'instructor' || member.role === 'instructor_guest') && member.can_issue
+  return member.can_issue &&
+    (member.role === 'instructor' || member.role === 'instructor_guest' || member.role === 'admin')
 }

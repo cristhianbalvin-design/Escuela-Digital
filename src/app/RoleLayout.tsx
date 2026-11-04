@@ -23,6 +23,7 @@ export function RoleLayout({ role }: { role: Role }) {
   const setRole = useRole((state) => state.setRole)
   const [signOutError, setSignOutError] = useState('')
   const links = navigation[role]
+  const viewOptions = (['admin', 'teacher', 'coordinator'] as const).filter((item) => access.views?.[item])
 
   async function handleSignOut() {
     setSignOutError('')
@@ -63,13 +64,22 @@ export function RoleLayout({ role }: { role: Role }) {
                 {t('selectSchool')}
               </NavLink>
             )}
-          {supabase && access.role === 'admin' && (role === 'admin' || role === 'teacher') && (
-            <NavLink
-              to={`${rolePath[role === 'admin' ? 'teacher' : 'admin']}${location.search}`}
-              className="inline-flex min-h-11 items-center rounded-control border border-border px-3 text-sm font-semibold hover:bg-brand-soft"
-            >
-              {role === 'admin' ? t('switchToTeacher') : t('switchToAdmin')}
-            </NavLink>
+          {supabase && viewOptions.length > 1 && (viewOptions as readonly Role[]).includes(role) && (
+            <label className="flex items-center gap-2 text-sm font-semibold">
+              <span className="sr-only sm:not-sr-only">{t('viewSelector')}</span>
+              <select
+                value={role}
+                aria-label={t('viewSelector')}
+                onChange={(event) => {
+                  navigate(`${rolePath[event.target.value as Role]}${location.search}`)
+                }}
+                className="min-h-11 rounded-control border border-border bg-transparent px-2 font-normal hover:bg-brand-soft"
+              >
+                {viewOptions.map((item) => (
+                  <option key={item} value={item}>{t(`views.${item}`)}</option>
+                ))}
+              </select>
+            </label>
           )}
           <Button variant="ghost" aria-label={t('search')} className="px-3">
             <Search size={20} />
