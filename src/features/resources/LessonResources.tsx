@@ -123,8 +123,8 @@ export function LessonResources({ lessonId, tenantId, versionId, editable, track
             const state = stateOf(mark)
             return (
             <li key={item.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-border px-3 py-2">
-              <span className="min-w-0 break-words">
+              className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-control border border-border px-3 py-2">
+              <span className="min-w-0 flex-1 basis-56 break-words">
                 {item.name}
                 {item.size_bytes !== null && (
                   <span className="text-text-muted"> · {formatBytes(item.size_bytes)}</span>
@@ -132,7 +132,7 @@ export function LessonResources({ lessonId, tenantId, versionId, editable, track
               </span>
               {tracking && (
                 <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                  <label className="flex items-center gap-2">
+                  <label className="flex w-36 items-center gap-2">
                     <input type="checkbox" className="size-4" checked={state.shared}
                       disabled={tracking.closed || marksQuery.isPending}
                       onChange={(event) => onToggle(item.id, 'shared', event.target.checked)} />
@@ -143,7 +143,7 @@ export function LessonResources({ lessonId, tenantId, versionId, editable, track
                       )}
                     </span>
                   </label>
-                  <label className="flex items-center gap-2">
+                  <label className="flex w-48 items-center gap-2">
                     <input type="checkbox" className="size-4" checked={state.used}
                       disabled={tracking.closed || marksQuery.isPending}
                       onChange={(event) => onToggle(item.id, 'used', event.target.checked)} />
@@ -156,7 +156,7 @@ export function LessonResources({ lessonId, tenantId, versionId, editable, track
                   </label>
                 </span>
               )}
-              <span className="flex gap-2">
+              <span className="ml-auto flex gap-2">
                 <Button variant="secondary" onClick={() => void onOpen(item.storage_path)}>
                   {t('resources.download')}
                 </Button>
