@@ -40,6 +40,7 @@ import {
   VerifyCertificatePage,
 } from '@/features/certificates'
 import { ClientsPage } from '@/features/clients'
+import { GlobalAnalyticsPage, GlobalCalendarPage, GlobalStudentsPage } from '@/features/global'
 import { supabase } from '@/lib/supabase'
 import { applyBrand } from '@/lib/theme'
 import { resolveTenant, type TenantLocation } from '@/lib/tenant'
@@ -317,7 +318,13 @@ function TenantView({ tenant }: { tenant: TenantLocation }) {
                               ? <SignersPage />
                               : role === 'admin' && key === 'clients'
                                 ? <ClientsPage />
-                                : <PlaceholderPage role={role} name={key} />
+                                : role === 'teacher' && key === 'students'
+                                  ? <GlobalStudentsPage />
+                                  : role === 'teacher' && key === 'calendar'
+                                    ? <GlobalCalendarPage />
+                                    : role === 'teacher' && key === 'analytics'
+                                      ? <GlobalAnalyticsPage />
+                                      : <PlaceholderPage role={role} name={key} />
                 }
               />
             ))}
