@@ -87,6 +87,135 @@ export function agendaOfferings(rows: AgendaRow[]): { id: string; title: string 
     .sort((a, b) => a.title.localeCompare(b.title))
 }
 
+// ---- Semana ----
+
+const DAY_MS = 86_400_000
+
+/** Suma días a una fecha AAAA-MM-DD (aritmética en UTC, sin horario de verano). */
+export function addDays(date: string, delta: number): string {
+  return new Date(new Date(`${date}T00:00:00Z`).getTime() + delta * DAY_MS).toISOString().slice(0, 10)
+}
+
+/** Lunes de la semana que contiene la fecha. */
+export function mondayOf(date: string): string {
+  const weekday = new Date(`${date}T00:00:00Z`).getUTCDay()
+  return addDays(date, -((weekday + 6) % 7))
+}
+
+export function weekDates(monday: string): string[] {
+  return Array.from({ length: 7 }, (_, index) => addDays(monday, index))
+}
+
+export function formatWeekRange(monday: string): string {
+  const sunday = addDays(monday, 6)
+  const day = (date: string) => Number(date.slice(8, 10))
+  const month = (date: string) => new Intl.DateTimeFormat('es-PE', { month: 'short', timeZone: 'UTC' })
+    .format(new Date(`${date}T00:00:00Z`)).replace('.', '')
+  const sameMonth = monday.slice(0, 7) === sunday.slice(0, 7)
+  const tail = `${day(sunday)} ${month(sunday)} ${sunday.slice(0, 4)}`
+  return sameMonth ? `${day(monday)} – ${tail}` : `${day(monday)} ${month(monday)} – ${tail}`
+}
+
+export function formatDayShort(date: string): { weekday: string; day: number } {
+  const weekday = new Intl.DateTimeFormat('es-PE', { weekday: 'short', timeZone: 'UTC' })
+    .format(new Date(`${date}T00:00:00Z`)).replace('.', '')
+  return { weekday: weekday.charAt(0).toUpperCase() + weekday.slice(1), day: Number(date.slice(8, 10)) }
+}
+
+/** Minutos desde medianoche de un horario HH:MM[:SS], o null si no hay. */
+export function minutesOf(time: string | null): number | null {
+  if (!time) return null
+  const [hours, minutes] = time.split(':').map(Number)
+  if (hours === undefined || minutes === undefined || Number.isNaN(hours) || Number.isNaN(minutes)) return null
+  return hours * 60 + minutes
+}
+
+export type WeekBlock = {
+  item: AgendaRow
+  start: number
+  end: number
+  lane: number
+  lanes: number
+}
+
+export type WeekDay = {
+  date: string
+  blocks: WeekBlock[]
+  untimed: AgendaRow[]
+}
+
+export type WeekLayout = {
+  days: WeekDay[]
+  startHour: number
+  endHour: number
+  total: number
+}
+
+const MIN_BLOCK_MINUTES = 45
+const DEFAULT_START_HOUR = 8
+const DEFAULT_END_HOUR = 20
+
+/**
+ * Acomoda las sesiones de la semana en una cuadrícula horaria: las que se cruzan
+ * se reparten en carriles y el rango de horas se ajusta a lo que hay.
+ */
+export function layoutWeek(rows: AgendaRow[], monday: string, offeringId: string | null = null): WeekLayout {
+  const dates = weekDates(monday)
+  const timed: WeekDay[] = dates.map((date) => ({ date, blocks: [], untimed: [] }))
+  const byDate = new Map(timed.map((day) => [day.date, day]))
+  let minStart = Infinity
+  let maxEnd = -Infinity
+  let total = 0
+  for (const row of rows) {
+    if (offeringId && row.offering_id !== offeringId) continue
+    const day = byDate.get(row.session_date)
+    if (!day) continue
+    total += 1
+    const start = minutesOf(row.start_time)
+    if (start === null) {
+      day.untimed.push(row)
+      continue
+    }
+    const rawEnd = minutesOf(row.end_time)
+    const end = Math.max(rawEnd ?? start + 60, start + MIN_BLOCK_MINUTES)
+    day.blocks.push({ item: row, start, end, lane: 0, lanes: 1 })
+    minStart = Math.min(minStart, start)
+    maxEnd = Math.max(maxEnd, end)
+  }
+  for (const day of timed) assignLanes(day.blocks)
+  const hasTimed = Number.isFinite(minStart)
+  const startHour = hasTimed ? Math.max(0, Math.min(DEFAULT_START_HOUR, Math.floor(minStart / 60))) : DEFAULT_START_HOUR
+  const endHour = hasTimed ? Math.min(24, Math.max(DEFAULT_END_HOUR, Math.ceil(maxEnd / 60))) : DEFAULT_END_HOUR
+  return { days: timed, startHour, endHour, total }
+}
+
+function assignLanes(blocks: WeekBlock[]): void {
+  blocks.sort((a, b) => a.start - b.start || a.end - b.end)
+  let cluster: WeekBlock[] = []
+  let clusterEnd = -1
+  const closeCluster = () => {
+    const laneEnds: number[] = []
+    for (const block of cluster) {
+      let lane = laneEnds.findIndex((end) => end <= block.start)
+      if (lane === -1) {
+        lane = laneEnds.length
+        laneEnds.push(block.end)
+      } else {
+        laneEnds[lane] = block.end
+      }
+      block.lane = lane
+    }
+    for (const block of cluster) block.lanes = laneEnds.length
+    cluster = []
+  }
+  for (const block of blocks) {
+    if (cluster.length > 0 && block.start >= clusterEnd) closeCluster()
+    cluster.push(block)
+    clusterEnd = cluster.length === 1 ? block.end : Math.max(clusterEnd, block.end)
+  }
+  if (cluster.length > 0) closeCluster()
+}
+
 // ---- Estudiantes ----
 
 export const studentEditionSchema = z.object({

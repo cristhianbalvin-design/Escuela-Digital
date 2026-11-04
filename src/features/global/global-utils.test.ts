@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  addMonths, filterStudents, formatTimeRange, groupByDay, monthRange, studentClients,
+  addDays, addMonths, layoutWeek, mondayOf, weekDates, filterStudents, formatTimeRange, groupByDay, monthRange, studentClients,
   summarize, todayLima, type AgendaRow, type AnalyticsRow, type GlobalStudent,
 } from './global-utils'
 
@@ -80,5 +80,49 @@ describe('analítica', () => {
   it('devuelve asistencia nula si ninguna edición tiene llamadas', () => {
     expect(summarize([row({ attendance_pct: null })]).attendancePct).toBeNull()
     expect(summarize([]).students).toBe(0)
+  })
+})
+
+describe('semana', () => {
+  const row = (date: string, start: string | null, end: string | null, lesson = 'L', offering = 'o1'): AgendaRow => ({
+    offering_id: offering, offering_title: 'Edición', client_name: 'UDEP', offering_status: 'running',
+    lesson_title: lesson, module_title: 'M', session_date: date, start_time: start, end_time: end,
+  })
+
+  it('encuentra el lunes de cualquier día, incluido el domingo', () => {
+    expect(mondayOf('2026-11-04')).toBe('2026-11-02')
+    expect(mondayOf('2026-11-02')).toBe('2026-11-02')
+    expect(mondayOf('2026-11-08')).toBe('2026-11-02')
+  })
+
+  it('suma días cruzando meses y años', () => {
+    expect(addDays('2026-12-30', 3)).toBe('2027-01-02')
+    expect(weekDates('2026-11-02')[6]).toBe('2026-11-08')
+  })
+
+  it('ajusta el rango de horas a las sesiones nocturnas', () => {
+    const layout = layoutWeek([row('2026-11-03', '19:00:00', '22:15:00')], '2026-11-02')
+    expect(layout.total).toBe(1)
+    expect(layout.startHour).toBe(8)
+    expect(layout.endHour).toBe(23)
+  })
+
+  it('reparte en carriles las sesiones que se cruzan', () => {
+    const layout = layoutWeek([
+      row('2026-11-03', '19:00', '21:00', 'A', 'o1'),
+      row('2026-11-03', '20:00', '22:00', 'B', 'o2'),
+      row('2026-11-03', '22:30', '23:00', 'C', 'o1'),
+    ], '2026-11-02')
+    const blocks = layout.days[1]!.blocks
+    expect(blocks.map((b) => [b.item.lesson_title, b.lane, b.lanes])).toEqual([['A', 0, 2], ['B', 1, 2], ['C', 0, 1]])
+  })
+
+  it('separa las sesiones sin horario y filtra por edición', () => {
+    const rows = [row('2026-11-04', null, null, 'S', 'o1'), row('2026-11-04', '10:00', '11:00', 'T', 'o2')]
+    const all = layoutWeek(rows, '2026-11-02')
+    expect(all.days[2]!.untimed).toHaveLength(1)
+    expect(all.days[2]!.blocks).toHaveLength(1)
+    expect(layoutWeek(rows, '2026-11-02', 'o2').total).toBe(1)
+    expect(layoutWeek(rows, '2026-11-09').total).toBe(0)
   })
 })
