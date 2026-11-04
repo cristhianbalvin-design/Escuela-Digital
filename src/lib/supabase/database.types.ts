@@ -1877,6 +1877,21 @@ export type Database = {
         Args: { p_offering_id: string; p_user_id: string }
         Returns: undefined
       }
+      invite_school_member: {
+        Args: { p_client_id?: string; p_days?: number; p_email: string; p_role: string; p_tenant_id: string }
+        Returns: Json
+      }
+      list_school_people: { Args: { p_tenant_id: string }; Returns: Json }
+      set_school_member_status: {
+        Args: { p_status: string; p_tenant_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      revoke_school_invitation: { Args: { p_invitation_id: string }; Returns: undefined }
+      list_placeholder_students: { Args: { p_tenant_id: string }; Returns: Json }
+      check_placeholder_email_change: {
+        Args: { p_email: string; p_tenant_id: string; p_user_id: string }
+        Returns: undefined
+      }
       list_tenant_certificates: {
         Args: { p_search?: string; p_tenant_id: string }
         Returns: Json

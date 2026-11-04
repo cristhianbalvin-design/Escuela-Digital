@@ -10,6 +10,8 @@ const previewSchema = z.discriminatedUnion('status', [
     tenant_name: z.string(),
     tenant_slug: z.string(),
     offering_title: z.string().nullable(),
+    role: z.string().optional(),
+    client_name: z.string().nullable().optional(),
   }),
 ])
 

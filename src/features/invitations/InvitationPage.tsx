@@ -67,7 +67,12 @@ export function InvitationPage() {
         }
       }
       await acceptInvitation(token)
-      navigate(`/estudiante/cursos${tenantSearch}`, { replace: true })
+      const invitedRole = preview.data.role ?? 'student'
+      const home = invitedRole === 'admin' ? '/admin'
+        : invitedRole === 'client_coordinator' ? '/coordinador'
+          : invitedRole === 'instructor' || invitedRole === 'instructor_guest' ? '/docente'
+            : '/estudiante/cursos'
+      navigate(`${home}${tenantSearch}`, { replace: true })
     } catch (cause) {
       setError(t(invitationRpcErrorKey(cause)))
     } finally {
@@ -131,10 +136,19 @@ export function InvitationPage() {
           </>
         ) : status === 'valid' ? (
           <>
-            <p>{t('invitations.invitedTo', {
-              offering: preview.data.offering_title ?? t('invitations.untitledOffering'),
-              school: preview.data.tenant_name,
-            })}</p>
+            {preview.data.offering_title === null && preview.data.role && preview.data.role !== 'student' ? (
+              <p>{t(preview.data.role === 'client_coordinator'
+                ? 'invitations.invitedAsCoordinator' : 'invitations.invitedAsStaff', {
+                school: preview.data.tenant_name,
+                client: preview.data.client_name ?? '',
+                role: t(`invitations.roleName.${preview.data.role}`),
+              })}</p>
+            ) : (
+              <p>{t('invitations.invitedTo', {
+                offering: preview.data.offering_title ?? t('invitations.untitledOffering'),
+                school: preview.data.tenant_name,
+              })}</p>
+            )}
             <Input
               id="invited-email"
               type="email"
