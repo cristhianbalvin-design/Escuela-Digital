@@ -8,19 +8,15 @@ export const navigation: Record<Role, NavItem[]> = {
     { key: 'offerings', segment: 'ediciones' },
     { key: 'students', segment: 'estudiantes' },
     { key: 'calendar', segment: 'calendario' },
-    { key: 'certificates', segment: 'certificados' },
     { key: 'analytics', segment: 'analitica' },
     { key: 'profile', segment: 'perfil' },
   ],
+  // Pendientes de construir (se vuelven a mostrar cuando estén listos):
+  // home, users (Personas), branding + settings (Escuela), reports.
   admin: [
-    { key: 'home', segment: 'inicio' },
     { key: 'clients', segment: 'clientes' },
     { key: 'courses', segment: 'cursos' },
-    { key: 'users', segment: 'usuarios' },
     { key: 'certificates', segment: 'certificados' },
-    { key: 'branding', segment: 'marca' },
-    { key: 'reports', segment: 'reportes' },
-    { key: 'settings', segment: 'configuracion' },
   ],
   student: [
     { key: 'home', segment: 'inicio' },

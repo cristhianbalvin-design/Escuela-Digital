@@ -1867,6 +1867,20 @@ export type Database = {
       get_my_attendance: { Args: { p_enrollment_id: string }; Returns: Json }
       get_offering_schedule: { Args: { p_offering_id: string }; Returns: Json }
       get_lesson_resources: { Args: { p_lesson_id: string }; Returns: Json }
+      list_tenant_instructors: { Args: { p_tenant_id: string }; Returns: Json }
+      list_offering_assignments: { Args: { p_tenant_id: string }; Returns: Json }
+      set_offering_instructor: {
+        Args: { p_offering_id: string; p_role: string; p_user_id: string }
+        Returns: undefined
+      }
+      remove_offering_instructor: {
+        Args: { p_offering_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      list_tenant_certificates: {
+        Args: { p_search?: string; p_tenant_id: string }
+        Returns: Json
+      }
       get_my_schedule: {
         Args: { p_from: string; p_tenant_id: string; p_to: string }
         Returns: Json

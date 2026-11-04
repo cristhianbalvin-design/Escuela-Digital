@@ -40,6 +40,7 @@ import {
   VerifyCertificatePage,
 } from '@/features/certificates'
 import { ClientsPage } from '@/features/clients'
+import { AdminCatalogPage, AdminCertificatesPage } from '@/features/admin'
 import { GlobalAnalyticsPage, GlobalCalendarPage, GlobalStudentsPage } from '@/features/global'
 import { supabase } from '@/lib/supabase'
 import { applyBrand } from '@/lib/theme'
@@ -314,9 +315,11 @@ function TenantView({ tenant }: { tenant: TenantLocation }) {
                           ? <StudentCoursesPage />
                           : role === 'student' && key === 'certificates'
                             ? <StudentCertificatesPage />
-                            : (role === 'teacher' || role === 'admin') && key === 'certificates'
-                              ? <SignersPage />
-                              : role === 'admin' && key === 'clients'
+                            : role === 'admin' && key === 'certificates'
+                              ? <AdminCertificatesPage />
+                              : role === 'admin' && key === 'courses'
+                                ? <AdminCatalogPage />
+                                : role === 'admin' && key === 'clients'
                                 ? <ClientsPage />
                                 : role === 'teacher' && key === 'students'
                                   ? <GlobalStudentsPage />
@@ -330,6 +333,7 @@ function TenantView({ tenant }: { tenant: TenantLocation }) {
             ))}
             {role === 'teacher' && (
               <>
+                <Route path="certificados" element={<SignersPage />} />
                 <Route path="cursos/nuevo" element={<CreateCoursePage />} />
                 <Route path="cursos/:courseId" element={<CourseBuilderPage />} />
                 <Route path="ediciones/nueva" element={<CreateOfferingPage />} />
