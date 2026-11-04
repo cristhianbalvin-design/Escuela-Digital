@@ -1867,6 +1867,13 @@ export type Database = {
       get_my_attendance: { Args: { p_enrollment_id: string }; Returns: Json }
       get_offering_schedule: { Args: { p_offering_id: string }; Returns: Json }
       get_lesson_resources: { Args: { p_lesson_id: string }; Returns: Json }
+      update_offering_student: {
+        Args: {
+          p_company: string; p_enrollment_id: string; p_full_name: string
+          p_job_title: string; p_offering_id: string; p_phone: string
+        }
+        Returns: undefined
+      }
       get_offering_resource_marks: { Args: { p_offering_id: string }; Returns: Json }
       set_offering_resource_mark: {
         Args: { p_offering_id: string; p_resource_id: string; p_shared: boolean; p_used: boolean }

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
-  Badge, Button, Card, EmptyState, Progress, Skeleton, useToast,
+  Badge, Button, Card, EmptyState, Input, Progress, Skeleton, useToast,
 } from '@/components/ui'
 import { LessonContent } from '@/features/courses/LessonContent'
 import { LessonResources } from '@/features/resources'
@@ -16,6 +16,7 @@ import {
   useOfferingRoster, useOutline,
 } from './api'
 import { InvitationPanel } from './InvitationPanel'
+import { StudentEditForm } from './StudentEditForm'
 import { GradingTab } from './grading/GradingTab'
 import { CertificatesTab } from '@/features/certificates'
 import { AttendanceTab } from '@/features/attendance'
@@ -118,6 +119,12 @@ export function OfferingDetailPage() {
   const outline = useOutline(offeringId, tab === 'content')
   const schedule = useSchedule(tab === 'content' ? offeringId : undefined)
   const [pendingOnly, setPendingOnly] = useState(false)
+  const [studentsView, setStudentsView] = useState<'roster' | 'enroll'>('roster')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [rosterFilter, setRosterFilter] = useState('')
+  const rosterNeedle = rosterFilter.trim().toLowerCase()
+  const filteredRoster = (roster.data ?? []).filter((student) => rosterNeedle === '' ||
+    `${student.full_name ?? ''} ${shownEmail(student.email)}`.toLowerCase().includes(rosterNeedle))
   const sessionDates = new Map((schedule.data ?? []).map((row) => [row.lesson_id, row.session_date]))
   const mutation = useOfferingAction(tenantId, offeringId)
   const enrollment = useEnrollStudents(tenantId, offeringId)
@@ -230,56 +237,80 @@ export function OfferingDetailPage() {
         )}
         {tab === 'students' && (
           <div className="grid gap-4">
-            {canEnroll && offeringId && <InvitationPanel offeringId={offeringId} />}
-            {canEnroll && offeringId && <EnrollForm offeringId={offeringId} />}
-            {canEnroll && offeringId && <ImportPanel offeringId={offeringId} />}
-            <Card className="grid gap-4">
-              <h2 className="text-lg font-bold">{t('teacherOfferings.enrollStudents')}</h2>
-              {!canEnroll && <p>{t('teacherOfferings.enrollClosed')}</p>}
-              {candidates.isPending ? <Skeleton className="h-24" /> :
-                candidates.isError ? (
-                  <div>
-                    <p role="alert">{readableError(candidates.error)}</p>
-                    <Button onClick={() => void candidates.refetch()}>{t('retry')}</Button>
-                  </div>
-                ) : candidates.data.length === 0 ? (
-                  <EmptyState title={t('teacherOfferings.noCandidates')}
-                    description={t('teacherOfferings.noCandidatesHint')} />
-                ) : (
-                  <fieldset className="grid gap-2">
-                    <legend className="mb-2 text-sm font-semibold">
-                      {t('teacherOfferings.chooseStudents')}
-                    </legend>
-                    {candidates.data.map((student) => {
-                      const name = student.full_name?.trim()
-                      return (
-                        <label key={student.user_id}
-                          className="flex min-h-11 cursor-pointer items-center gap-3 rounded-control border border-border p-3 focus-within:outline-3">
-                          <input type="checkbox" className="size-5 accent-brand"
-                            aria-label={name || student.email}
-                            checked={selectedIds.includes(student.user_id)}
-                            disabled={!canEnroll || enrollment.isPending}
-                            onChange={() => toggleSelected(student.user_id)} />
-                          <span className="grid">
-                            <span className="font-semibold">{name || student.email}</span>
-                            {name && (
-                              <span className="text-sm text-text-muted">
-                                {shownEmail(student.email)}
-                              </span>
-                            )}
-                          </span>
-                        </label>
-                      )
-                    })}
-                  </fieldset>
-                )}
-              <Button disabled={!canEnroll || enrollment.isPending ||
-                selectedIds.length === 0 || candidates.isPending || candidates.isError}
-                onClick={() => void enrollSelected()}>
-                {t('teacherOfferings.enrollSelected')}
+            <div role="tablist" aria-label={t('teacherOfferings.studentsViews')} className="flex flex-wrap gap-2">
+              <Button role="tab" aria-selected={studentsView === 'roster'}
+                variant={studentsView === 'roster' ? 'primary' : 'secondary'}
+                onClick={() => setStudentsView('roster')}>
+                {roster.data
+                  ? t('teacherOfferings.studentsViewRosterCount', { count: roster.data.length })
+                  : t('teacherOfferings.studentsViewRoster')}
               </Button>
-            </Card>
+              <Button role="tab" aria-selected={studentsView === 'enroll'}
+                variant={studentsView === 'enroll' ? 'primary' : 'secondary'}
+                onClick={() => setStudentsView('enroll')}>
+                {t('teacherOfferings.studentsViewEnroll')}
+              </Button>
+            </div>
+            {studentsView === 'enroll' && (
+              <div className="grid gap-4">
+              {canEnroll && offeringId && <InvitationPanel offeringId={offeringId} />}
+              {canEnroll && offeringId && <EnrollForm offeringId={offeringId} />}
+              {canEnroll && offeringId && <ImportPanel offeringId={offeringId} />}
+              <Card className="grid gap-4">
+                <h2 className="text-lg font-bold">{t('teacherOfferings.enrollStudents')}</h2>
+                {!canEnroll && <p>{t('teacherOfferings.enrollClosed')}</p>}
+                {candidates.isPending ? <Skeleton className="h-24" /> :
+                  candidates.isError ? (
+                    <div>
+                      <p role="alert">{readableError(candidates.error)}</p>
+                      <Button onClick={() => void candidates.refetch()}>{t('retry')}</Button>
+                    </div>
+                  ) : candidates.data.length === 0 ? (
+                    <EmptyState title={t('teacherOfferings.noCandidates')}
+                      description={t('teacherOfferings.noCandidatesHint')} />
+                  ) : (
+                    <fieldset className="grid gap-2">
+                      <legend className="mb-2 text-sm font-semibold">
+                        {t('teacherOfferings.chooseStudents')}
+                      </legend>
+                      {candidates.data.map((student) => {
+                        const name = student.full_name?.trim()
+                        return (
+                          <label key={student.user_id}
+                            className="flex min-h-11 cursor-pointer items-center gap-3 rounded-control border border-border p-3 focus-within:outline-3">
+                            <input type="checkbox" className="size-5 accent-brand"
+                              aria-label={name || student.email}
+                              checked={selectedIds.includes(student.user_id)}
+                              disabled={!canEnroll || enrollment.isPending}
+                              onChange={() => toggleSelected(student.user_id)} />
+                            <span className="grid">
+                              <span className="font-semibold">{name || student.email}</span>
+                              {name && (
+                                <span className="text-sm text-text-muted">
+                                  {shownEmail(student.email)}
+                                </span>
+                              )}
+                            </span>
+                          </label>
+                        )
+                      })}
+                    </fieldset>
+                  )}
+                <Button disabled={!canEnroll || enrollment.isPending ||
+                  selectedIds.length === 0 || candidates.isPending || candidates.isError}
+                  onClick={() => void enrollSelected()}>
+                  {t('teacherOfferings.enrollSelected')}
+                </Button>
+              </Card>
+              </div>
+            )}
+            {studentsView === 'roster' && (
+              <div className="grid gap-4">
             <h2 className="text-lg font-bold">{t('teacherOfferings.roster')}</h2>
+            <div className="max-w-md">
+              <Input label={t('teacherOfferings.rosterSearch')} value={rosterFilter}
+                onChange={(event) => setRosterFilter(event.target.value)} />
+            </div>
             {roster.isPending ? <Skeleton className="h-48" /> :
               roster.isError ? (
                 <Card>
@@ -289,40 +320,60 @@ export function OfferingDetailPage() {
               ) : roster.data.length === 0 ? (
                 <EmptyState title={t('teacherOfferings.noStudents')}
                   description={t('teacherOfferings.noStudentsHint')} />
-              ) : roster.data.map((student) => (
+              ) : filteredRoster.length === 0 ? (
+                <EmptyState title={t('teacherOfferings.rosterNoMatches')} />
+              ) : filteredRoster.map((student) => (
                 <Card key={student.enrollment_id} className="grid gap-3">
-                  <div className="grid gap-1">
-                    <h3 className="font-semibold">
-                      {student.full_name?.trim() || student.email}
-                    </h3>
-                    {student.full_name?.trim() && (
-                      <p className="text-sm text-text-muted">{shownEmail(student.email)}</p>
-                    )}
-                    {(student.phone || student.job_title || student.company) && (
-                      <p className="text-sm text-text-muted">
-                        {[student.job_title, student.company, student.phone]
-                          .filter(Boolean).join(' · ')}
-                      </p>
-                    )}
-                  </div>
-                  <Badge status={student.status === 'active' || student.status === 'completed'
-                    ? 'success' : student.status === 'dropped' ? 'neutral' : 'warning'}>
-                    {t(`teacherOfferings.enrollmentStatus.${student.status}`)}
-                  </Badge>
-                  <Progress value={student.progress_pct}
-                    label={t('teacherOfferings.studentProgress')} />
-                  <div className="flex flex-wrap gap-2">
-                    {enrollmentTransitions[student.status].map((status) => (
-                      <Button key={status} variant="secondary" disabled={mutation.isPending}
-                        onClick={() => void run({
-                          kind: 'enrollment', id: student.enrollment_id, status,
-                        })}>
-                        {t(`teacherOfferings.enrollmentStatus.${status}`)}
-                      </Button>
-                    ))}
-                  </div>
+                  {editingId === student.enrollment_id && offeringId ? (
+                    <StudentEditForm offeringId={offeringId} enrollmentId={student.enrollment_id}
+                      initial={{
+                        full_name: student.full_name?.trim() ?? '',
+                        phone: student.phone ?? '',
+                        job_title: student.job_title ?? '',
+                        company: student.company ?? '',
+                      }}
+                      onDone={() => setEditingId(null)} />
+                  ) : (
+                    <>
+                      <div className="grid gap-1">
+                        <h3 className="font-semibold">
+                          {student.full_name?.trim() || shownEmail(student.email)}
+                        </h3>
+                        {student.full_name?.trim() && shownEmail(student.email) && (
+                          <p className="text-sm text-text-muted">{shownEmail(student.email)}</p>
+                        )}
+                        {(student.phone || student.job_title || student.company) && (
+                          <p className="text-sm text-text-muted">
+                            {[student.job_title, student.company, student.phone]
+                              .filter(Boolean).join(' · ')}
+                          </p>
+                        )}
+                      </div>
+                      <Badge status={student.status === 'active' || student.status === 'completed'
+                        ? 'success' : student.status === 'dropped' ? 'neutral' : 'warning'}>
+                        {t(`teacherOfferings.enrollmentStatus.${student.status}`)}
+                      </Badge>
+                      <Progress value={student.progress_pct}
+                        label={t('teacherOfferings.studentProgress')} />
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="secondary" onClick={() => setEditingId(student.enrollment_id)}>
+                          {t('teacherOfferings.editStudent')}
+                        </Button>
+                        {enrollmentTransitions[student.status].map((status) => (
+                          <Button key={status} variant="secondary" disabled={mutation.isPending}
+                            onClick={() => void run({
+                              kind: 'enrollment', id: student.enrollment_id, status,
+                            })}>
+                            {t(`teacherOfferings.enrollmentStatus.${status}`)}
+                          </Button>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </Card>
               ))}
+              </div>
+            )}
           </div>
         )}
         {tab === 'schedule' && offeringId && <ScheduleTab offeringId={offeringId} />}

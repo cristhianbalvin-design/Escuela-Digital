@@ -81,6 +81,7 @@ describe('OfferingDetailPage', () => {
     )
 
     fireEvent.click(await screen.findByRole('tab', { name: 'Estudiantes' }))
+    fireEvent.click(await screen.findByRole('tab', { name: 'Matricular' }))
     fireEvent.click(await screen.findByRole('checkbox', { name: /Ana Pérez/ }))
     fireEvent.click(screen.getByRole('checkbox', { name: /Luis Soto/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Matricular seleccionados' }))

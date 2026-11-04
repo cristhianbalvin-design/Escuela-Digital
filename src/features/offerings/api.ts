@@ -156,6 +156,30 @@ export function useOfferingRoster(offeringId: string | undefined, enabled: boole
   })
 }
 
+export function useUpdateStudent(offeringId: string) {
+  const cache = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      enrollmentId: string; full_name: string; phone: string; job_title: string; company: string
+    }) => {
+      const { error } = await client().rpc('update_offering_student', {
+        p_offering_id: offeringId,
+        p_enrollment_id: input.enrollmentId,
+        p_full_name: input.full_name,
+        p_phone: input.phone,
+        p_job_title: input.job_title,
+        p_company: input.company,
+      })
+      check(error)
+    },
+    onSettled: () => Promise.all([
+      cache.invalidateQueries({ queryKey: ['offering-roster', offeringId] }),
+      cache.invalidateQueries({ queryKey: ['gradebook', offeringId] }),
+      cache.invalidateQueries({ queryKey: ['attendance-summary', offeringId] }),
+    ]),
+  })
+}
+
 export function useEnrollableStudents(offeringId: string | undefined, enabled: boolean) {
   return useQuery({
     queryKey: ['enrollable-students', offeringId],
