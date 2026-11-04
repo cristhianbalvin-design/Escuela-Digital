@@ -1004,6 +1004,7 @@ export type Database = {
       }
       lesson_resources: {
         Row: {
+          audience: string
           id: string
           kind: string
           lesson_id: string
@@ -1014,6 +1015,7 @@ export type Database = {
           version_id: string
         }
         Insert: {
+          audience?: string
           id?: string
           kind: string
           lesson_id: string
@@ -1024,6 +1026,7 @@ export type Database = {
           version_id: string
         }
         Update: {
+          audience?: string
           id?: string
           kind?: string
           lesson_id?: string

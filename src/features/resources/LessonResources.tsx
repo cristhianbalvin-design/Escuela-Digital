@@ -3,11 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { Button, Skeleton } from '@/components/ui'
 import {
   openResource, useDeleteResource, useLessonResources, useOfferingResourceMarks,
-  useSetResourceMark, useUploadResources,
+  useRenameResource, useReplaceResource, useSetResourceAudience, useSetResourceMark,
+  useUploadResources,
 } from './resources-api'
 import {
   ALLOWED_EXTENSIONS, fileProblem, formatBytes, formatMarkDate, isPastDate, markProgress,
-  MAX_RESOURCE_BYTES, stateOf, toggleMark, type ResourceMark,
+  MAX_NAME_LENGTH, MAX_RESOURCE_BYTES, renamedFile, stateOf, toggleMark,
+  type Audience, type LessonResource, type ResourceMark,
 } from './resources-utils'
 
 /** Seguimiento por edición: casillas "Enviado" y "Usado en clase" (solo equipo docente). */
@@ -34,6 +36,14 @@ export function LessonResources({ lessonId, tenantId, versionId, editable, track
     tenantId: tenantId ?? '', versionId: versionId ?? '', lessonId,
   })
   const remove = useDeleteResource(lessonId)
+  const target = { tenantId: tenantId ?? '', versionId: versionId ?? '', lessonId }
+  const rename = useRenameResource(lessonId)
+  const setAudience = useSetResourceAudience(lessonId)
+  const replace = useReplaceResource(target)
+  const replaceInput = useRef<HTMLInputElement>(null)
+  const [replaceTarget, setReplaceTarget] = useState<LessonResource | null>(null)
+  const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null)
+  const [uploadAudience, setUploadAudience] = useState<Audience>('students')
   const marksQuery = useOfferingResourceMarks(tracking?.offeringId)
   const setMark = useSetResourceMark(tracking?.offeringId ?? '')
   const input = useRef<HTMLInputElement>(null)
@@ -55,11 +65,48 @@ export function LessonResources({ lessonId, tenantId, versionId, editable, track
       }
     }
     try {
-      await upload.mutateAsync(picked)
+      await upload.mutateAsync({ files: picked, audience: uploadAudience })
       setMessage(t('resources.uploaded', { count: picked.length }))
     } catch {
       setMessage(t('resources.uploadError'))
     }
+  }
+
+  async function onReplace(files: FileList | null) {
+    setMessage('')
+    const file = files?.[0]
+    const resource = replaceTarget
+    if (replaceInput.current) replaceInput.current.value = ''
+    setReplaceTarget(null)
+    if (!file || !resource || !editable || !tenantId || !versionId) return
+    const problem = fileProblem(file)
+    if (problem) {
+      setMessage(t(`resources.problem.${problem}`, {
+        name: file.name, max: Math.round(MAX_RESOURCE_BYTES / (1024 * 1024)),
+      }))
+      return
+    }
+    try {
+      await replace.mutateAsync({ resource, file })
+      setMessage(t('resources.replaced', { name: file.name }))
+    } catch {
+      setMessage(t('resources.replaceError'))
+    }
+  }
+
+  function saveRename(resource: LessonResource) {
+    if (!renaming) return
+    const name = renamedFile(resource.name, renaming.value)
+    if (!name) return
+    setMessage('')
+    if (name === resource.name) {
+      setRenaming(null)
+      return
+    }
+    rename.mutate({ id: resource.id, name }, {
+      onSuccess: () => setRenaming(null),
+      onError: () => setMessage(t('resources.renameError')),
+    })
   }
 
   async function onOpen(path: string) {
@@ -77,11 +124,13 @@ export function LessonResources({ lessonId, tenantId, versionId, editable, track
   const marks = new Map<string, ResourceMark>(
     (marksQuery.data ?? []).map((mark) => [mark.resource_id, mark]),
   )
-  const progress = markProgress(items.map((item) => item.id), marks)
+  const forStudents = items.filter((item) => item.audience === 'students')
+  const progress = markProgress(forStudents.map((item) => item.id), marks)
   const visible = tracking?.pendingOnly
-    ? items.filter((item) => !stateOf(marks.get(item.id)).used)
+    ? items.filter((item) => item.audience === 'teachers' || !stateOf(marks.get(item.id)).used)
     : items
-  const overdue = !!tracking && isPastDate(tracking.sessionDate) && items.length > 0 && !progress.done
+  const overdue = !!tracking && isPastDate(tracking.sessionDate) && forStudents.length > 0 && !progress.done
+  const staffView = editable || !!tracking
 
   function onToggle(resourceId: string, field: 'shared' | 'used', checked: boolean) {
     if (!tracking) return
@@ -124,13 +173,37 @@ export function LessonResources({ lessonId, tenantId, versionId, editable, track
             return (
             <li key={item.id}
               className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-control border border-border px-3 py-2">
-              <span className="min-w-0 flex-1 basis-56 break-words">
-                {item.name}
-                {item.size_bytes !== null && (
-                  <span className="text-text-muted"> · {formatBytes(item.size_bytes)}</span>
-                )}
-              </span>
-              {tracking && (
+              {renaming?.id === item.id ? (
+                <span className="flex min-w-0 flex-1 basis-56 flex-wrap items-center gap-2">
+                  <input type="text" autoFocus maxLength={MAX_NAME_LENGTH}
+                    aria-label={t('resources.rename')}
+                    className="min-w-0 flex-1 basis-40 rounded-control border border-border bg-transparent px-2 py-1"
+                    value={renaming.value}
+                    onChange={(event) => setRenaming({ id: item.id, value: event.target.value })}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') saveRename(item)
+                      if (event.key === 'Escape') setRenaming(null)
+                    }} />
+                  <Button variant="secondary" disabled={rename.isPending}
+                    onClick={() => saveRename(item)}>{t('resources.saveName')}</Button>
+                  <Button variant="secondary" onClick={() => setRenaming(null)}>
+                    {t('resources.cancel')}
+                  </Button>
+                </span>
+              ) : (
+                <span className="min-w-0 flex-1 basis-56 break-words">
+                  {item.name}
+                  {item.size_bytes !== null && (
+                    <span className="text-text-muted"> · {formatBytes(item.size_bytes)}</span>
+                  )}
+                  {staffView && item.audience === 'teachers' && (
+                    <span className="ml-2 rounded-control border border-border px-2 py-0.5 text-xs">
+                      {t('resources.teachersOnly')}
+                    </span>
+                  )}
+                </span>
+              )}
+              {tracking && item.audience === 'students' && (
                 <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
                   <label className="flex w-36 items-center gap-2">
                     <input type="checkbox" className="size-4" checked={state.shared}
@@ -156,10 +229,34 @@ export function LessonResources({ lessonId, tenantId, versionId, editable, track
                   </label>
                 </span>
               )}
-              <span className="ml-auto flex gap-2">
+              <span className="ml-auto flex flex-wrap gap-2">
                 <Button variant="secondary" onClick={() => void onOpen(item.storage_path)}>
                   {t('resources.download')}
                 </Button>
+                {editable && renaming?.id !== item.id && (
+                  <>
+                    <Button variant="secondary"
+                      onClick={() => setRenaming({ id: item.id, value: item.name })}>
+                      {t('resources.rename')}
+                    </Button>
+                    <Button variant="secondary" disabled={replace.isPending}
+                      onClick={() => {
+                        setReplaceTarget(item)
+                        replaceInput.current?.click()
+                      }}>
+                      {replace.isPending && replaceTarget?.id === item.id
+                        ? t('resources.uploading') : t('resources.replace')}
+                    </Button>
+                    <Button variant="secondary" disabled={setAudience.isPending}
+                      onClick={() => setAudience.mutate({
+                        id: item.id,
+                        audience: item.audience === 'students' ? 'teachers' : 'students',
+                      }, { onError: () => setMessage(t('resources.audienceError')) })}>
+                      {item.audience === 'students'
+                        ? t('resources.makeTeachersOnly') : t('resources.shareWithStudents')}
+                    </Button>
+                  </>
+                )}
                 {editable && (
                   <Button variant="destructive" disabled={remove.isPending}
                     onClick={() => {
@@ -184,10 +281,25 @@ export function LessonResources({ lessonId, tenantId, versionId, editable, track
             id={`resource-input-${lessonId}`}
             accept={ALLOWED_EXTENSIONS.map((ext) => `.${ext}`).join(',')}
             onChange={(event) => void onPick(event.target.files)} />
-          <Button variant="secondary" className="w-fit" disabled={upload.isPending}
-            onClick={() => input.current?.click()}>
-            {upload.isPending ? t('resources.uploading') : t('resources.add')}
-          </Button>
+          <input ref={replaceInput} type="file" className="sr-only"
+            id={`resource-replace-${lessonId}`} tabIndex={-1}
+            accept={ALLOWED_EXTENSIONS.map((ext) => `.${ext}`).join(',')}
+            onChange={(event) => void onReplace(event.target.files)} />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="secondary" className="w-fit" disabled={upload.isPending}
+              onClick={() => input.current?.click()}>
+              {upload.isPending ? t('resources.uploading') : t('resources.add')}
+            </Button>
+            <label className="flex items-center gap-2 text-sm">
+              <span className="text-text-muted">{t('resources.uploadAs')}</span>
+              <select value={uploadAudience}
+                onChange={(event) => setUploadAudience(event.target.value as Audience)}
+                className="rounded-control border border-border bg-transparent px-2 py-1">
+                <option value="students">{t('resources.forStudents')}</option>
+                <option value="teachers">{t('resources.teachersOnly')}</option>
+              </select>
+            </label>
+          </div>
           <p className="text-xs text-text-muted">
             {t('resources.hint', { max: Math.round(MAX_RESOURCE_BYTES / (1024 * 1024)) })}
           </p>

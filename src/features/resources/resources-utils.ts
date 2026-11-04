@@ -12,9 +12,21 @@ export const resourceSchema = z.object({
   kind: z.string(),
   size_bytes: z.number().nullable(),
   storage_path: z.string(),
+  audience: z.enum(['students', 'teachers']).default('students'),
 })
 export const resourcesSchema = z.array(resourceSchema)
 export type LessonResource = z.infer<typeof resourceSchema>
+export type Audience = LessonResource['audience']
+export const MAX_NAME_LENGTH = 120
+
+/** Nombre nuevo para un archivo: recorta, limita el largo y conserva la extensión si se omite. */
+export function renamedFile(oldName: string, typed: string): string | null {
+  const clean = typed.replace(/\s+/g, ' ').trim()
+  if (clean === '') return null
+  const ext = extensionOf(oldName)
+  const withExt = ext && extensionOf(clean) !== ext ? `${clean}.${ext}` : clean
+  return withExt.slice(0, MAX_NAME_LENGTH)
+}
 
 export function extensionOf(name: string): string {
   const dot = name.lastIndexOf('.')

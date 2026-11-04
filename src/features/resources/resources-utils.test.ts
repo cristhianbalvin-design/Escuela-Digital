@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   fileProblem, formatBytes, formatMarkDate, isPastDate, kindOf, markProgress, MAX_RESOURCE_BYTES,
-  resourcePath, safeFileName, stateOf, toggleMark, type ResourceMark,
+  renamedFile, resourcePath, safeFileName, stateOf, toggleMark, type ResourceMark,
 } from './resources-utils'
 
 describe('safeFileName', () => {
@@ -75,5 +75,18 @@ describe('marcas de material', () => {
   })
   it('formatea la fecha de la marca', () => {
     expect(formatMarkDate('2026-11-03T15:00:00Z')).toBe('03/11')
+  })
+})
+
+describe('renamedFile', () => {
+  it('conserva la extensión si se omite', () => {
+    expect(renamedFile('Guia.pdf', '  Guía   de clase ')).toBe('Guía de clase.pdf')
+  })
+  it('respeta la extensión si ya la trae', () => {
+    expect(renamedFile('Guia.pdf', 'Nueva.pdf')).toBe('Nueva.pdf')
+  })
+  it('rechaza nombres vacíos y limita el largo', () => {
+    expect(renamedFile('Guia.pdf', '   ')).toBeNull()
+    expect(renamedFile('Guia.pdf', 'a'.repeat(300))!.length).toBe(120)
   })
 })
