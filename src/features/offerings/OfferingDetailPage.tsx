@@ -7,6 +7,7 @@ import {
 import { LessonContent } from '@/features/courses/LessonContent'
 import { LessonResources } from '@/features/resources'
 import { useSchedule } from '@/features/schedule/schedule-api'
+import { formatSessionDate, formatTimeRange } from '@/features/global/global-utils'
 import { useTenantAccess } from '@/features/tenants'
 import { readableError } from '@/features/courses/schemas'
 import { supabase } from '@/lib/supabase'
@@ -126,6 +127,7 @@ export function OfferingDetailPage() {
   const filteredRoster = (roster.data ?? []).filter((student) => rosterNeedle === '' ||
     `${student.full_name ?? ''} ${shownEmail(student.email)}`.toLowerCase().includes(rosterNeedle))
   const sessionDates = new Map((schedule.data ?? []).map((row) => [row.lesson_id, row.session_date]))
+  const sessionTimes = new Map((schedule.data ?? []).map((row) => [row.lesson_id, formatTimeRange(row.start_time, row.end_time)]))
   const mutation = useOfferingAction(tenantId, offeringId)
   const enrollment = useEnrollStudents(tenantId, offeringId)
 
@@ -409,8 +411,18 @@ export function OfferingDetailPage() {
                   <ul className="grid gap-3">
                     {module.lessons.map((lesson) => (
                       <li key={lesson.id} className="grid gap-2">
-                        <span className="font-semibold">
-                          {lesson.locked ? '🔒 ' : ''}{lesson.title}
+                        <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                          <span className="font-semibold">
+                            {lesson.locked ? '🔒 ' : ''}{lesson.title}
+                          </span>
+                          {sessionDates.get(lesson.id) ? (
+                            <span className="rounded-full bg-surface-elevated px-2 py-0.5 text-sm font-medium text-text-muted">
+                              {formatSessionDate(sessionDates.get(lesson.id) as string)}
+                              {sessionTimes.get(lesson.id) ? ` · ${sessionTimes.get(lesson.id)}` : ''}
+                            </span>
+                          ) : schedule.isSuccess ? (
+                            <span className="text-sm text-text-muted">{t('teacherOfferings.noSessionDate')}</span>
+                          ) : null}
                         </span>
                         {lesson.locked && lesson.unlock_at && (
                           <span className="text-sm text-text-muted">

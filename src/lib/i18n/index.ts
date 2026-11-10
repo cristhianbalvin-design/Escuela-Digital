@@ -770,6 +770,7 @@ export const resources = {
           suspended: 'Suspendido',
         },
         noContent: 'Esta edición no tiene contenido',
+        noSessionDate: 'Sin fecha programada',
         unlockAt: 'Se abre el {{date}}',
       },
       activities: {

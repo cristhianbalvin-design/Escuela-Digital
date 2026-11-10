@@ -59,6 +59,14 @@ export function formatDayLong(date: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
+/** "Martes 3 nov" para referenciar una sesión. */
+export function formatSessionDate(date: string): string {
+  const text = new Intl.DateTimeFormat('es-PE', {
+    weekday: 'long', day: 'numeric', month: 'short', timeZone: 'UTC',
+  }).format(new Date(`${date}T00:00:00Z`)).replace(',', '').replace('.', '')
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
 export function formatTimeRange(start: string | null, end: string | null): string {
   if (!start) return ''
   const from = start.slice(0, 5)

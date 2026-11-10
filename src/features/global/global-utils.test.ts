@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  addDays, addMonths, layoutWeek, mondayOf, weekDates, filterStudents, formatTimeRange, groupByDay, monthRange, studentClients,
+  addDays, addMonths, formatSessionDate, layoutWeek, mondayOf, weekDates, filterStudents, formatTimeRange, groupByDay, monthRange, studentClients,
   summarize, todayLima, type AgendaRow, type AnalyticsRow, type GlobalStudent,
 } from './global-utils'
 
@@ -124,5 +124,11 @@ describe('semana', () => {
     expect(all.days[2]!.blocks).toHaveLength(1)
     expect(layoutWeek(rows, '2026-11-02', 'o2').total).toBe(1)
     expect(layoutWeek(rows, '2026-11-09').total).toBe(0)
+  })
+})
+
+describe('formatSessionDate', () => {
+  it('muestra día de la semana y fecha', () => {
+    expect(formatSessionDate('2026-11-03')).toBe('Martes 3 nov')
   })
 })
