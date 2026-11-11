@@ -1816,6 +1816,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_live_activities: { Args: { p_lesson_id: string }; Returns: Json }
+      save_live_activities: { Args: { p_lesson_id: string; p_items: Json }; Returns: Json }
+      create_live_session: {
+        Args: { p_offering_id: string; p_lesson_id: string; p_access_mode: string; p_ask_name: boolean; p_ask_company: boolean }
+        Returns: Json
+      }
+      get_live_control_state: { Args: { p_session_id: string }; Returns: Json }
+      launch_live_run: { Args: { p_session_id: string; p_activity_id: string }; Returns: Json }
+      close_live_run: { Args: { p_run_id: string }; Returns: Json }
+      set_live_run_visibility: { Args: { p_run_id: string; p_show_results: boolean }; Returns: Json }
+      moderate_live_response: { Args: { p_response_id: string; p_hidden: boolean; p_pinned: boolean }; Returns: Json }
+      merge_live_term: { Args: { p_run_id: string; p_term: string; p_merged_into: string | null; p_hidden: boolean }; Returns: Json }
+      end_live_session: { Args: { p_session_id: string }; Returns: Json }
+      join_live_session: { Args: { p_code: string; p_name: string | null; p_company: string | null }; Returns: Json }
+      get_live_state: { Args: { p_code: string; p_token: string }; Returns: Json }
+      submit_live_response: { Args: { p_code: string; p_token: string; p_run_id: string; p_answer: Json }; Returns: Json }
+      get_projector_state: { Args: { p_code: string }; Returns: Json }
       accept_invitation: { Args: { p_token: string }; Returns: Json }
       create_course: {
         Args: {
