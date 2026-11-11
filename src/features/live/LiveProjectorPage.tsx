@@ -5,6 +5,7 @@ import { isLiveCode } from './live-utils'
 import { useProjectorState } from './live-api'
 import { LiveResults } from './LiveResults'
 import { CompareResults, QuizDistribution, RankingList, useRoundCountdown } from './LiveSpecial'
+import { SafeMarkdown } from './SafeMarkdown'
 
 type Run = NonNullable<ReturnType<typeof useProjectorState>['data']>['run']
 function SpecialProjector({ run, ranking }: { run: NonNullable<Run>; ranking: NonNullable<ReturnType<typeof useProjectorState>['data']>['ranking'] }) {
@@ -66,6 +67,7 @@ export function LiveProjectorPage() {
         state.data?.session.status === 'ended' ? <h1 className="m-auto text-center text-5xl font-bold">{t('live.ended')}</h1> :
         !run ? <h1 className="m-auto text-center text-4xl font-bold">{t('live.waiting')}</h1> :
         <section className="space-y-10">
+          {typeof run.config.context === 'string' && run.config.context && <div className="mx-auto max-w-5xl rounded-control border border-border p-5 text-xl"><SafeMarkdown source={run.config.context} /></div>}
           <div className="text-center"><p className="text-xl font-semibold uppercase text-text-muted">{t(`live.types.${run.type}`)}</p>
             <h1 className="mx-auto mt-3 max-w-5xl text-4xl font-bold leading-tight md:text-6xl">{run.title}</h1>
             {typeof run.config.help === 'string' && <p className="mx-auto mt-4 max-w-4xl text-xl text-text-muted">{run.config.help}</p>}

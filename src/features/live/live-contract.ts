@@ -8,6 +8,8 @@ const token = z.string().regex(/^[0-9a-f]{64}$/)
 const sessionId = z.object({ p_session_id: uuid }).strict()
 const runId = z.object({ p_run_id: uuid }).strict()
 const lessonId = z.object({ p_lesson_id: uuid }).strict()
+const offeringId = z.object({ p_offering_id: uuid }).strict()
+const context = z.string().max(6000).optional()
 const option = z.object({
   id: z.string().refine((value) => value.trim().length >= 1 && value.trim().length <= 100),
   label: z.string().refine((value) => value.trim().length >= 1 && value.trim().length <= 200),
@@ -16,32 +18,32 @@ const option = z.object({
 const help = z.string().refine((value) => value.trim().length >= 1 && value.trim().length <= 200).optional()
 const indicator_label = z.string().refine((value) => value.trim().length >= 1 && value.trim().length <= 60).optional()
 const options = z.array(option).min(2).max(20).refine((items) => new Set(items.map((item) => item.id)).size === items.length)
-const choiceConfig = z.object({ options, help, indicator_label }).strict()
-const multiConfig = z.object({ options, max_choices: z.number().int().min(1).max(20).optional(), help, indicator_label }).strict()
+const choiceConfig = z.object({ options, help, indicator_label, context }).strict()
+const multiConfig = z.object({ options, max_choices: z.number().int().min(1).max(20).optional(), help, indicator_label, context }).strict()
   .refine((config) => config.max_choices === undefined || config.max_choices <= config.options.length)
-const wordConfig = z.object({ max_answers: z.number().int().min(1).max(20), help, indicator_label }).strict()
+const wordConfig = z.object({ max_answers: z.number().int().min(1).max(20), help, indicator_label, context }).strict()
 const scaleConfig = z.object({
   scale_min: z.number().int().min(-100).max(100), scale_max: z.number().int().min(-100).max(100),
   labels: z.record(z.string().max(10), z.string().refine((value) => value.trim().length <= 200)).optional(),
-  help, indicator_label,
+  help, indicator_label, context,
 }).strict().refine((config) => config.scale_max > config.scale_min && config.scale_max - config.scale_min <= 20)
-const emptyConfig = z.object({ help, indicator_label }).strict()
+const emptyConfig = z.object({ help, indicator_label, context }).strict()
 const quizOption = option.omit({ score: true })
 const quizConfig = z.object({ options: z.array(quizOption).min(2).max(6).refine((items) => new Set(items.map((item) => item.id)).size === items.length),
-  correct: z.string(), explanation: z.string().max(400).optional(), seconds: z.number().int().min(5).max(120), concept: z.string().max(80).optional(), help }).strict()
+  correct: z.string(), explanation: z.string().max(400).optional(), seconds: z.number().int().min(5).max(120), concept: z.string().max(80).optional(), help, context }).strict()
   .refine((value) => value.options.some((item) => item.id === value.correct))
 const compareOption = z.object({ id: z.string().trim().min(1).max(100), label: z.string().trim().min(1).max(200), content: z.string().max(20000), real_name: z.string().max(60) }).strict()
 const compareCriterion = z.object({ id: z.string().trim().min(1).max(100), label: z.string().trim().min(1).max(80), description: z.string().max(300) }).strict()
 const compareConfig = z.object({ description: z.string().max(2000).optional(), options: z.array(compareOption).min(2).max(5).refine((items) => new Set(items.map((item) => item.id)).size === items.length),
   criteria: z.array(compareCriterion).min(1).max(10).refine((items) => new Set(items.map((item) => item.id)).size === items.length),
-  scale_max: z.number().int().min(3).max(10).optional(), final_question: z.string().max(200), ask_comment: z.boolean(), comment_max: z.number().int().min(0).max(200), help }).strict()
+  scale_max: z.number().int().min(3).max(10).optional(), final_question: z.string().max(200), ask_comment: z.boolean(), comment_max: z.number().int().min(0).max(200), help, context }).strict()
 const publicQuizConfig = z.object({ options: z.array(quizOption).min(2).max(6),
-  seconds: z.number().int().min(5).max(120), concept: z.string().max(80).optional(), help }).strict()
+  seconds: z.number().int().min(5).max(120), concept: z.string().max(80).optional(), help, context }).strict()
   .refine((value) => new Set(value.options.map((item) => item.id)).size === value.options.length)
 const publicCompareOption = z.object({ id: z.string().trim().min(1).max(100), label: z.string().trim().min(1).max(200), content: z.string().max(20000) }).strict()
 const publicCompareConfig = z.object({ description: z.string().max(2000).optional(), options: z.array(publicCompareOption).min(2).max(5),
   criteria: z.array(compareCriterion).min(1).max(10),
-  scale_max: z.number().int().min(3).max(10).optional(), final_question: z.string().max(200), ask_comment: z.boolean(), comment_max: z.number().int().min(0).max(200), help }).strict()
+  scale_max: z.number().int().min(3).max(10).optional(), final_question: z.string().max(200), ask_comment: z.boolean(), comment_max: z.number().int().min(0).max(200), help, context }).strict()
   .refine((value) => new Set(value.options.map((item) => item.id)).size === value.options.length)
 const activityType = z.enum(['poll_single', 'poll_multi', 'vote', 'wordcloud', 'open', 'scale', 'quiz', 'compare'])
 const configForType = {
@@ -68,6 +70,7 @@ export const liveRpcInputSchemas = {
     p_ask_name: z.boolean(), p_ask_company: z.boolean(),
   }).strict(),
   get_live_control_state: sessionId,
+  get_offering_live_session: offeringId,
   launch_live_run: z.object({ p_session_id: uuid, p_activity_id: uuid }).strict(),
   close_live_run: runId,
   set_live_run_visibility: z.object({ p_run_id: uuid, p_show_results: z.boolean() }).strict(),
@@ -167,6 +170,7 @@ export const liveRpcOutputSchemas = {
   save_live_activities: activitiesOutput,
   create_live_session: controlStateOutput,
   get_live_control_state: controlStateOutput,
+  get_offering_live_session: controlStateOutput.nullable(),
   launch_live_run: controlStateOutput,
   close_live_run: controlStateOutput,
   set_live_run_visibility: controlStateOutput,

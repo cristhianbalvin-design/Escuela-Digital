@@ -4,27 +4,28 @@ export const liveTypes = ['poll_single', 'poll_multi', 'vote', 'wordcloud', 'ope
 export type LiveType = typeof liveTypes[number]
 
 const help = z.string().trim().min(1).max(200).optional()
+const context = z.string().max(6000).optional()
 const indicatorLabel = z.string().trim().min(1).max(60).optional()
 const optionSchema = z.object({ id: z.string().trim().min(1).max(100), label: z.string().trim().min(1).max(200), score: z.number().int().min(0).max(100).optional() }).strict()
 const optionsSchema = z.array(optionSchema).min(2).max(20).refine(
   (options) => new Set(options.map((option) => option.id)).size === options.length,
   'Las opciones deben tener identificadores diferentes.',
 )
-const choiceConfig = z.object({ options: optionsSchema, help, indicator_label: indicatorLabel }).strict()
-const multiConfig = z.object({ options: optionsSchema, max_choices: z.number().int().min(1).max(20).optional(), help, indicator_label: indicatorLabel }).strict()
+const choiceConfig = z.object({ options: optionsSchema, help, indicator_label: indicatorLabel, context }).strict()
+const multiConfig = z.object({ options: optionsSchema, max_choices: z.number().int().min(1).max(20).optional(), help, indicator_label: indicatorLabel, context }).strict()
   .refine((config) => config.max_choices === undefined || config.max_choices <= config.options.length)
-const wordConfig = z.object({ max_answers: z.number().int().min(1).max(20).default(3), help, indicator_label: indicatorLabel }).strict()
+const wordConfig = z.object({ max_answers: z.number().int().min(1).max(20).default(3), help, indicator_label: indicatorLabel, context }).strict()
 const scaleConfig = z.object({
   scale_min: z.number().int().min(-100).max(100),
   scale_max: z.number().int().min(-100).max(100),
   labels: z.record(z.string().max(10), z.string().trim().max(200)).optional(),
-  help, indicator_label: indicatorLabel,
+  help, indicator_label: indicatorLabel, context,
 }).strict().refine((config) => config.scale_max > config.scale_min && config.scale_max - config.scale_min <= 20)
 const quizConfig = z.object({
   options: z.array(z.object({ id: z.string().trim().min(1).max(100), label: z.string().trim().min(1).max(200) }).strict()).min(2).max(6)
     .refine((items) => new Set(items.map((item) => item.id)).size === items.length),
   correct: z.string(), explanation: z.string().max(400).optional(),
-  seconds: z.number().int().min(5).max(120), concept: z.string().max(80).optional(), help,
+  seconds: z.number().int().min(5).max(120), concept: z.string().max(80).optional(), help, context,
 }).strict().refine((config) => config.options.some((option) => option.id === config.correct))
 const compareConfig = z.object({
   description: z.string().max(2000).optional(),
@@ -33,7 +34,7 @@ const compareConfig = z.object({
   criteria: z.array(z.object({ id: z.string().trim().min(1).max(100), label: z.string().trim().min(1).max(80), description: z.string().max(300) }).strict()).min(1).max(10)
     .refine((items) => new Set(items.map((item) => item.id)).size === items.length),
   scale_max: z.number().int().min(3).max(10).default(5), final_question: z.string().max(200),
-  ask_comment: z.boolean(), comment_max: z.number().int().min(0).max(200), help,
+  ask_comment: z.boolean(), comment_max: z.number().int().min(0).max(200), help, context,
 }).strict()
 
 export const liveActivitySchema = z.discriminatedUnion('type', [
@@ -41,7 +42,7 @@ export const liveActivitySchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('vote'), config: choiceConfig }).strict(),
   z.object({ type: z.literal('poll_multi'), config: multiConfig }).strict(),
   z.object({ type: z.literal('wordcloud'), config: wordConfig }).strict(),
-  z.object({ type: z.literal('open'), config: z.object({ help, indicator_label: indicatorLabel }).strict() }).strict(),
+  z.object({ type: z.literal('open'), config: z.object({ help, indicator_label: indicatorLabel, context }).strict() }).strict(),
   z.object({ type: z.literal('scale'), config: scaleConfig }).strict(),
   z.object({ type: z.literal('quiz'), config: quizConfig }).strict(),
   z.object({ type: z.literal('compare'), config: compareConfig }).strict(),

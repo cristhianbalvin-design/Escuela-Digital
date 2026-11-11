@@ -9,6 +9,7 @@ import { answerSchema, isLiveCode, liveActivitySchema } from './live-utils'
 import { liveRpc, useLiveState } from './live-api'
 import { LiveResults } from './LiveResults'
 import { CompareRound, QuizRound } from './LiveSpecial'
+import { SafeMarkdown } from './SafeMarkdown'
 import type { LiveRpcOutput } from './live-contract'
 
 const storageKey = (code: string) => `live:participant:${code}`
@@ -203,7 +204,7 @@ export function LiveJoinPage() {
     {data?.session.status === 'ended' && <Card><h2 className="text-2xl font-bold">{t('live.ended')}</h2></Card>}
     {data?.session.status === 'active' && (!run || (run.status === 'closed' && !run.show_results && !run.reveal && !run.show_ranking && !(run.type === 'compare' && data.my_response !== null))) && <Card role="status" aria-live="polite">{t('live.waiting')}</Card>}
     {data?.session.status === 'active' && run && (run.status === 'open' || run.show_results || run.reveal || run.show_ranking || (run.type === 'compare' && data.my_response !== null)) && <Card className="space-y-6">
-      <div><p className="text-sm font-semibold uppercase text-text-muted">{t(`live.types.${run.type}`)}</p>
+      <div>{typeof run.config.context === 'string' && run.config.context && <div className="mb-4 rounded-control border border-border p-3"><SafeMarkdown source={run.config.context} /></div>}<p className="text-sm font-semibold uppercase text-text-muted">{t(`live.types.${run.type}`)}</p>
         <h2 className="mt-1 text-2xl font-bold">{run.title}</h2>
         {typeof run.config.help === 'string' && <p className="mt-2 text-text-muted">{run.config.help}</p>}</div>
       {token && run.type === 'quiz' && <QuizRound key={run.id} run={run} code={code} token={token} mine={data.my_response} ranking={data.ranking} myRank={data.my_rank}

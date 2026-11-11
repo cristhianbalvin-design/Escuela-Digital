@@ -8,6 +8,7 @@ import type { LiveRpcInput, LiveRpcName, LiveRpcOutput } from './live-contract'
 
 export const liveActivitiesKey = (lessonId: string) => ['live', 'activities', lessonId] as const
 export const liveControlKey = (sessionId: string) => ['live', 'control', sessionId] as const
+export const offeringLiveSessionKey = (offeringId: string) => ['live', 'offering-session', offeringId] as const
 
 async function liveAiError(error: unknown): Promise<Error> {
   let code = ''
@@ -52,17 +53,20 @@ export function useLiveAi() {
   return { analyzeGroup, groupWordcloud }
 }
 
-function useVisibleRefresh(sessionId: string, code: string | undefined) {
+function useVisibleRefresh(sessionId: string, code: string | undefined, offeringId?: string) {
   const cache = useQueryClient()
   useEffect(() => {
     if (!sessionId) return
-    const refresh = () => { if (!document.hidden) void cache.invalidateQueries({ queryKey: liveControlKey(sessionId) }) }
+    const refresh = () => { if (!document.hidden) {
+      void cache.invalidateQueries({ queryKey: liveControlKey(sessionId) })
+      if (offeringId) void cache.invalidateQueries({ queryKey: offeringLiveSessionKey(offeringId) })
+    } }
     document.addEventListener('visibilitychange', refresh)
     if (!code || !supabase) return () => document.removeEventListener('visibilitychange', refresh)
     const client = supabase
     const channel = client.channel(`live:${code}`).on('broadcast', { event: 'changed' }, refresh).subscribe()
     return () => { document.removeEventListener('visibilitychange', refresh); void client.removeChannel(channel) }
-  }, [cache, sessionId, code])
+  }, [cache, sessionId, code, offeringId])
 }
 
 async function ping(code: string) {
@@ -98,6 +102,11 @@ export function useSaveLiveActivities(lessonId: string) {
         cache.setQueryData(key, { ...state, activities })
         void ping(state.session.code)
       }
+      const offerings = cache.getQueriesData<LiveRpcOutput<'get_offering_live_session'>>({ queryKey: ['live', 'offering-session'] })
+      for (const [key, state] of offerings) if (state?.session.lesson_id === lessonId) {
+        cache.setQueryData(key, { ...state, activities })
+        void ping(state.session.code)
+      }
     },
   })
 }
@@ -113,8 +122,19 @@ export function useLiveControlState(sessionId: string) {
   return query
 }
 
+export function useOfferingLiveSession(offeringId: string) {
+  const query = useQuery({
+    queryKey: offeringLiveSessionKey(offeringId), enabled: !!offeringId && !!supabase,
+    queryFn: () => liveRpc('get_offering_live_session', { p_offering_id: offeringId }),
+    refetchInterval: 2000,
+    retry: false,
+  })
+  useVisibleRefresh(query.data?.session.id ?? '', query.data?.session.code, offeringId)
+  return query
+}
+
 type ControlMutation = Exclude<LiveRpcName,
-  'get_live_activities' | 'save_live_activities' | 'get_live_control_state' |
+  'get_live_activities' | 'save_live_activities' | 'get_live_control_state' | 'get_offering_live_session' |
   'join_live_session' | 'get_live_state' | 'submit_live_response' | 'get_projector_state'>
 
 function useControlMutation<K extends ControlMutation>(name: K) {
@@ -123,6 +143,7 @@ function useControlMutation<K extends ControlMutation>(name: K) {
     mutationFn: (input: LiveRpcInput<K>) => liveRpc(name, input),
     onSuccess: (state) => {
       cache.setQueryData(liveControlKey(state.session.id), state)
+      cache.setQueryData(offeringLiveSessionKey(state.session.offering_id), state.session.status === 'active' ? state : null)
       cache.setQueryData(liveActivitiesKey(state.session.lesson_id), state.activities)
       void cache.invalidateQueries({ queryKey: ['session-plan', state.session.offering_id, state.session.lesson_id] })
       void cache.invalidateQueries({ queryKey: ['plan-progress', state.session.offering_id] })

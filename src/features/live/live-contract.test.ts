@@ -32,7 +32,25 @@ describe('entradas de las RPC en vivo', () => {
     ] }).success).toBe(false)
   })
 
+  it('acepta contexto hasta 6000 caracteres en todos los tipos', () => {
+    const base = { options: [{ id: 'a', label: 'Sí' }, { id: 'b', label: 'No' }] }
+    const cases = [
+      ['poll_single', base], ['poll_multi', base], ['vote', base],
+      ['wordcloud', { max_answers: 3 }], ['open', {}], ['scale', { scale_min: 1, scale_max: 5 }],
+      ['quiz', { ...base, correct: 'a', seconds: 30 }],
+      ['compare', { options: [{ id: 'a', label: 'A', real_name: '', content: '' }, { id: 'b', label: 'B', real_name: '', content: '' }],
+        criteria: [{ id: 'c', label: 'C', description: '' }], final_question: '', ask_comment: false, comment_max: 0 }],
+    ] as const
+    for (const [type, config] of cases) {
+      const valid = { p_lesson_id: id, p_items: [{ title: 'Pregunta', type, config: { ...config, context: 'x'.repeat(6000) } }] }
+      expect(liveRpcInputSchemas.save_live_activities.safeParse(valid).success).toBe(true)
+      expect(liveRpcInputSchemas.save_live_activities.safeParse({ ...valid, p_items: [{ ...valid.p_items[0], config: { ...config, context: 'x'.repeat(6001) } }] }).success).toBe(false)
+    }
+  })
+
   it('valida el código y el token', () => {
+    expect(liveRpcInputSchemas.get_offering_live_session.safeParse({ p_offering_id: id }).success).toBe(true)
+    expect(liveRpcInputSchemas.get_offering_live_session.safeParse({ p_offering_id: id, extra: true }).success).toBe(false)
     expect(liveRpcInputSchemas.get_live_state.safeParse({ p_code: code, p_token: token }).success).toBe(true)
     expect(liveRpcInputSchemas.get_live_state.safeParse({ p_code: 'ABC230', p_token: token }).success).toBe(false)
     expect(liveRpcInputSchemas.get_live_state.safeParse({ p_code: code, p_token: 'corto' }).success).toBe(false)
@@ -75,10 +93,10 @@ describe('entradas nuevas de quiz y comparativa', () => {
   })
 })
 
-describe('salidas JSON de las 17 RPC en vivo', () => {
+describe('salidas JSON de las 18 RPC en vivo', () => {
   const examples: Record<LiveRpcName, unknown> = {
     get_live_activities: [activity], save_live_activities: [activity],
-    create_live_session: controlState, get_live_control_state: controlState,
+    create_live_session: controlState, get_live_control_state: controlState, get_offering_live_session: controlState,
     launch_live_run: controlState, close_live_run: controlState,
     set_live_run_visibility: controlState, moderate_live_response: controlState,
     set_live_run_paused: controlState, set_live_run_reveal: controlState, set_live_run_ranking: controlState,
@@ -93,6 +111,7 @@ describe('salidas JSON de las 17 RPC en vivo', () => {
   })
 
   it('acepta estados vacíos, resultados ocultos y sesión terminada', () => {
+    expect(liveRpcOutputSchemas.get_offering_live_session.safeParse(null).success).toBe(true)
     expect(liveRpcOutputSchemas.get_live_state.safeParse({ ...participantState, run: null, my_response: null }).success).toBe(true)
     expect(liveRpcOutputSchemas.get_projector_state.safeParse({ ...projectorState, run: { ...run, results: null } }).success).toBe(true)
     expect(liveRpcOutputSchemas.get_projector_state.safeParse({ session: { code, status: 'ended' }, run: null }).success).toBe(true)

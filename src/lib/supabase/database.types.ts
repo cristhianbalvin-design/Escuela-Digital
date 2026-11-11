@@ -1823,6 +1823,7 @@ export type Database = {
         Returns: Json
       }
       get_live_control_state: { Args: { p_session_id: string }; Returns: Json }
+      get_offering_live_session: { Args: { p_offering_id: string }; Returns: Json }
       launch_live_run: { Args: { p_session_id: string; p_activity_id: string }; Returns: Json }
       close_live_run: { Args: { p_run_id: string }; Returns: Json }
       set_live_run_visibility: { Args: { p_run_id: string; p_show_results: boolean }; Returns: Json }
