@@ -79,8 +79,12 @@ export function LiveActivityEditor({ lessonId, editable, planItemId }: { lessonI
       })}</section>)}
       {editable && <div className="grid gap-2"><p className="font-medium">{t('live.addActivity')}</p>
         <div className="flex flex-wrap gap-2">{liveTypes.map((type) => <Button key={type} variant="secondary" onClick={() => setDraft([...items, { id: crypto.randomUUID(), title: '', type, config: defaultConfig(type), plan_item_id: planItemId ?? null }])}>+ {t(`live.types.${type}`)}</Button>)}</div>
-        <Button className="w-fit" disabled={draft === null || save.isPending} onClick={() => void submit()}>{t('live.saveActivities')}</Button></div>}
+</div>}
+      {editable && <div className="sticky bottom-0 z-10 -mx-3 -mb-3 flex flex-wrap items-center gap-3 border-t border-border bg-surface-elevated p-3">
+        <Button disabled={draft === null || save.isPending} onClick={() => void submit()}>{t('live.saveActivities')}</Button>
+        {draft !== null && <span className="text-sm text-text-muted">{t('live.unsaved')}</span>}
+        {message && <span role="status" aria-live="polite" className="text-sm">{message}</span>}</div>}
     </>}
-    {message && <p role="status" aria-live="polite">{message}</p>}
+    {!editable && message && <p role="status" aria-live="polite">{message}</p>}
   </section>
 }
