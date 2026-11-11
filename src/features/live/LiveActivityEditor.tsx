@@ -19,7 +19,7 @@ function defaultConfig(type: LiveType): Record<string, unknown> {
   return {}
 }
 
-export function LiveActivityEditor({ lessonId, editable }: { lessonId: string; editable: boolean }) {
+export function LiveActivityEditor({ lessonId, editable, planItemId }: { lessonId: string; editable: boolean; planItemId?: string | null }) {
   const { t } = useTranslation()
   const query = useLiveActivities(lessonId)
   const plan = useLessonPlan(lessonId)
@@ -48,8 +48,8 @@ export function LiveActivityEditor({ lessonId, editable }: { lessonId: string; e
   return <section className="grid gap-3 rounded-control border border-border bg-surface-elevated p-3">
     <h4 className="font-semibold">{t('live.editorTitle')}</h4>
     {query.isPending ? <p>{t('live.loading')}</p> : query.isError ? <p role="alert">{t('live.editorError')}</p> : <>
-      {items.length === 0 && <p className="text-sm text-text-muted">{t('live.editorEmpty')}</p>}
-      {groupLiveActivities(items.map((item, index) => ({ ...item, plan_item_id: item.plan_item_id ?? null, index, position: index })), planItems).map((group) => <section key={group.id ?? 'unlinked'} className="grid gap-2"><h5 className="font-semibold">{group.title ?? t('live.unlinked')}</h5>{group.activities.map((entry) => {
+      {(planItemId === undefined ? items.length === 0 : !items.some((item) => (item.plan_item_id ?? null) === planItemId)) && <p className="text-sm text-text-muted">{t('live.editorEmpty')}</p>}
+      {groupLiveActivities(items.map((item, index) => ({ ...item, plan_item_id: item.plan_item_id ?? null, index, position: index })), planItems).filter((group) => planItemId === undefined || group.id === planItemId).map((group) => <section key={group.id ?? 'unlinked'} className="grid gap-2"><h5 className="font-semibold">{group.title ?? t('live.unlinked')}</h5>{group.activities.map((entry) => {
         const index = entry.index
         const item = items[index]!
         const options = (item.type === 'poll_single' || item.type === 'poll_multi' || item.type === 'vote') && Array.isArray(item.config.options)
@@ -77,7 +77,9 @@ export function LiveActivityEditor({ lessonId, editable }: { lessonId: string; e
           {editable && <div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={group.activities[0]?.index === index} aria-label={t('live.moveUp')} onClick={() => move(index, -1)}>↑</Button><Button variant="secondary" disabled={group.activities.at(-1)?.index === index} aria-label={t('live.moveDown')} onClick={() => move(index, 1)}>↓</Button><Button variant="secondary" onClick={() => setDraft([...items.slice(0, index + 1), { ...item, id: crypto.randomUUID(), title: `${item.title} (${t('live.copy')})` }, ...items.slice(index + 1)])}>{t('live.duplicateActivity')}</Button><Button variant="destructive" onClick={() => setDraft(items.filter((_, i) => i !== index))}>{t('live.deleteActivity')}</Button></div>}
         </div>
       })}</section>)}
-      {editable && <div className="flex flex-wrap items-center gap-2"><label>{t('live.addActivity')}<select className={field} value="" onChange={(e) => { const type = liveTypes.find((value) => value === e.target.value); if (type) setDraft([...items, { id: crypto.randomUUID(), title: '', type, config: defaultConfig(type), plan_item_id: null }]) }}><option value="">{t('live.chooseType')}</option>{liveTypes.map((type) => <option key={type} value={type}>{t(`live.types.${type}`)}</option>)}</select></label><Button disabled={draft === null || save.isPending} onClick={() => void submit()}>{t('live.saveActivities')}</Button></div>}
+      {editable && <div className="grid gap-2"><p className="font-medium">{t('live.addActivity')}</p>
+        <div className="flex flex-wrap gap-2">{liveTypes.map((type) => <Button key={type} variant="secondary" onClick={() => setDraft([...items, { id: crypto.randomUUID(), title: '', type, config: defaultConfig(type), plan_item_id: planItemId ?? null }])}>+ {t(`live.types.${type}`)}</Button>)}</div>
+        <Button className="w-fit" disabled={draft === null || save.isPending} onClick={() => void submit()}>{t('live.saveActivities')}</Button></div>}
     </>}
     {message && <p role="status" aria-live="polite">{message}</p>}
   </section>

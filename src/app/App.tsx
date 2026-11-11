@@ -62,6 +62,7 @@ import { TenantContext } from './TenantContext'
 
 const LiveJoinPage = lazy(() => import('@/features/live/LiveJoinPage').then((module) => ({ default: module.LiveJoinPage })))
 const LiveControlPage = lazy(() => import('@/features/live/LiveControlPage').then((module) => ({ default: module.LiveControlPage })))
+const LiveEditorPage = lazy(() => import('@/features/live/LiveEditorPage').then((module) => ({ default: module.LiveEditorPage })))
 const LiveProjectorPage = lazy(() => import('@/features/live/LiveProjectorPage').then((module) => ({ default: module.LiveProjectorPage })))
 
 const brandingSource = supabase
@@ -401,6 +402,7 @@ export function App() {
               <Route path="/clase/:code" element={<Suspense fallback={<main role="status" className="p-8">Cargando…</main>}><LiveJoinPage /></Suspense>} />
               <Route path="/clase/:code/proyector" element={<Suspense fallback={<main role="status" className="p-8">Cargando…</main>}><LiveProjectorPage /></Suspense>} />
               <Route path="/clase-control/:offeringId/:lessonId" element={<Suspense fallback={<main role="status" className="p-8">Cargando…</main>}><LiveControlPage /></Suspense>} />
+              <Route path="/actividades/:lessonId" element={<Suspense fallback={<main role="status" className="p-8">Cargando…</main>}><LiveEditorPage /></Suspense>} />
               <Route path="/*" element={<TenantRoutes />} />
             </Routes>
           </AuthProvider>

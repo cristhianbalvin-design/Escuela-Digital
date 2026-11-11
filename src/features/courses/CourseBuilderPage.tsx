@@ -1,5 +1,5 @@
 import { PlanEditor } from '@/features/planning/Planning'
-import { LiveActivityEditor } from '@/features/live/LiveActivityEditor'
+import { LiveActivityIndex } from '@/features/live/LiveActivityIndex'
 import { useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -337,7 +337,7 @@ function LessonEditor({
         <LessonContent content={lesson.content} />
       )}
       <PlanEditor lessonId={lesson.id} tenantId={lesson.tenant_id} editable={editable || contentEditable} />
-      {(editable || contentEditable) && <LiveActivityEditor lessonId={lesson.id} editable />}
+      {(editable || contentEditable) && <LiveActivityIndex lessonId={lesson.id} />}
       <LessonResources lessonId={lesson.id} tenantId={lesson.tenant_id}
         versionId={lesson.version_id} editable={editable || contentEditable} />
       {editable && (
