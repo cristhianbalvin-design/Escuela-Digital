@@ -1,0 +1,67 @@
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Button } from '@/components/ui'
+import { useLessonPlan } from '@/features/planning/planning-api'
+import { liveRpcInputSchemas, type LiveRpcInput } from './live-contract'
+import { liveActivitySchema, liveTypes, type LiveType } from './live-utils'
+import { useLiveActivities, useSaveLiveActivities } from './live-teacher-api'
+
+type Item = LiveRpcInput<'save_live_activities'>['p_items'][number]
+const field = 'w-full min-w-0 rounded-control border border-border bg-surface p-2'
+function defaultConfig(type: LiveType): Record<string, unknown> {
+  if (type === 'poll_single' || type === 'poll_multi' || type === 'vote')
+    return { options: [{ id: crypto.randomUUID(), label: '' }, { id: crypto.randomUUID(), label: '' }] }
+  if (type === 'wordcloud') return { max_answers: 3 }
+  if (type === 'scale') return { scale_min: 1, scale_max: 5, labels: {} }
+  return {}
+}
+
+export function LiveActivityEditor({ lessonId, editable }: { lessonId: string; editable: boolean }) {
+  const { t } = useTranslation()
+  const query = useLiveActivities(lessonId)
+  const plan = useLessonPlan(lessonId)
+  const save = useSaveLiveActivities(lessonId)
+  const [draft, setDraft] = useState<Item[] | null>(null)
+  const [message, setMessage] = useState('')
+  const items = draft ?? query.data?.map((item): Item => ({ id: item.id, title: item.title, type: item.type, config: item.config, plan_item_id: item.plan_item_id })) ?? []
+  const interactive = plan.data?.items.filter((item) => item.kind === 'interactiva') ?? []
+  function update(index: number, item: Item) { setDraft(items.map((current, i) => i === index ? item : current)) }
+  function move(index: number, offset: number) {
+    const copy = [...items]; const target = index + offset
+    if (target < 0 || target >= copy.length) return
+    ;[copy[index], copy[target]] = [copy[target]!, copy[index]!]
+    setDraft(copy)
+  }
+  async function submit() {
+    const parsed = liveRpcInputSchemas.save_live_activities.safeParse({ p_lesson_id: lessonId, p_items: items })
+    if (!parsed.success || !items.every((item) => liveActivitySchema.safeParse({ type: item.type, config: item.config }).success)) {
+      setMessage(t('live.editorInvalid')); return
+    }
+    try { await save.mutateAsync(items); setDraft(null); setMessage(t('live.editorSaved')) }
+    catch (error) { setMessage(error instanceof Error ? error.message : t('live.editorError')) }
+  }
+  return <section className="grid gap-3 rounded-control border border-border bg-surface-elevated p-3">
+    <h4 className="font-semibold">{t('live.editorTitle')}</h4>
+    {query.isPending ? <p>{t('live.loading')}</p> : query.isError ? <p role="alert">{t('live.editorError')}</p> : <>
+      {items.length === 0 && <p className="text-sm text-text-muted">{t('live.editorEmpty')}</p>}
+      {items.map((item, index) => {
+        const activity = liveActivitySchema.safeParse({ type: item.type, config: item.config })
+        const config = activity.success ? activity.data : null
+        const options = config && (config.type === 'poll_single' || config.type === 'poll_multi' || config.type === 'vote') ? config.config.options : null
+        const change = (configValue: Record<string, unknown>) => update(index, { ...item, config: configValue })
+        return <div key={item.id ?? index} className="grid min-w-0 gap-2 rounded-control border border-border p-3">
+          <label>{t('live.activityTitle')}<input className={field} maxLength={200} value={item.title} disabled={!editable} onChange={(e) => update(index, { ...item, title: e.target.value })} /></label>
+          <div className="grid gap-2 sm:grid-cols-2"><label>{t('live.activityType')}<select className={field} value={item.type} disabled={!editable} onChange={(e) => { const type = liveTypes.find((value) => value === e.target.value); if (type) update(index, { ...item, type, config: defaultConfig(type) }) }}>{liveTypes.map((type) => <option key={type} value={type}>{t(`live.types.${type}`)}</option>)}</select></label>
+            <label>{t('live.planLink')}<select className={field} value={item.plan_item_id ?? ''} disabled={!editable || plan.isPending} onChange={(e) => update(index, { ...item, plan_item_id: e.target.value || null })}><option value="">{t('live.noPlanLink')}</option>{interactive.map((planItem) => <option key={planItem.id} value={planItem.id}>{planItem.title}</option>)}</select></label></div>
+          {options && <fieldset className="grid gap-2"><legend className="font-medium">{t('live.options')}</legend>{options.map((option, optionIndex) => <div key={option.id} className="flex min-w-0 gap-2"><input className={field} aria-label={t('live.optionNumber', { number: optionIndex + 1 })} maxLength={200} value={option.label} disabled={!editable} onChange={(e) => change({ ...item.config, options: options.map((candidate, i) => i === optionIndex ? { ...candidate, label: e.target.value } : candidate) })} />{editable && <Button variant="secondary" disabled={options.length <= 2} aria-label={t('live.removeOption', { number: optionIndex + 1 })} onClick={() => change({ ...item.config, options: options.filter((_, i) => i !== optionIndex) })}>×</Button>}</div>)}{editable && <Button variant="secondary" className="w-fit" disabled={options.length >= 20} onClick={() => change({ ...item.config, options: [...options, { id: crypto.randomUUID(), label: '' }] })}>{t('live.addOption')}</Button>}</fieldset>}
+          {item.type === 'poll_multi' && <label>{t('live.maxChoicesEditor')}<input className={field} type="number" min={1} max={options?.length ?? 20} value={typeof item.config.max_choices === 'number' ? item.config.max_choices : ''} disabled={!editable} onChange={(e) => { const next = { ...item.config }; if (e.target.value) next.max_choices = Number(e.target.value); else delete next.max_choices; change(next) }} /></label>}
+          {item.type === 'wordcloud' && <label>{t('live.maxAnswersEditor')}<input className={field} type="number" min={1} max={20} value={typeof item.config.max_answers === 'number' ? item.config.max_answers : 3} disabled={!editable} onChange={(e) => change({ max_answers: Number(e.target.value) })} /></label>}
+          {item.type === 'scale' && <div className="grid gap-2 sm:grid-cols-2"><label>{t('live.scaleMin')}<input className={field} type="number" min={-100} max={100} value={typeof item.config.scale_min === 'number' ? item.config.scale_min : 1} disabled={!editable} onChange={(e) => change({ ...item.config, scale_min: Number(e.target.value) })} /></label><label>{t('live.scaleMax')}<input className={field} type="number" min={-100} max={100} value={typeof item.config.scale_max === 'number' ? item.config.scale_max : 5} disabled={!editable} onChange={(e) => change({ ...item.config, scale_max: Number(e.target.value) })} /></label>{['scale_min', 'scale_max'].map((bound) => { const value = item.config[bound]; const labels = item.config.labels && typeof item.config.labels === 'object' ? item.config.labels as Record<string, string> : {}; return <label key={bound}>{t(bound === 'scale_min' ? 'live.scaleMinLabel' : 'live.scaleMaxLabel')}<input className={field} maxLength={200} value={typeof value === 'number' ? labels[String(value)] ?? '' : ''} disabled={!editable} onChange={(e) => { if (typeof value === 'number') change({ ...item.config, labels: { ...labels, [String(value)]: e.target.value } }) }} /></label> })}</div>}
+          {editable && <div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={index === 0} aria-label={t('live.moveUp')} onClick={() => move(index, -1)}>↑</Button><Button variant="secondary" disabled={index === items.length - 1} aria-label={t('live.moveDown')} onClick={() => move(index, 1)}>↓</Button><Button variant="destructive" onClick={() => setDraft(items.filter((_, i) => i !== index))}>{t('live.deleteActivity')}</Button></div>}
+        </div>
+      })}
+      {editable && <div className="flex flex-wrap items-center gap-2"><label>{t('live.addActivity')}<select className={field} value="" onChange={(e) => { const type = liveTypes.find((value) => value === e.target.value); if (type) setDraft([...items, { id: crypto.randomUUID(), title: '', type, config: defaultConfig(type), plan_item_id: null }]) }}><option value="">{t('live.chooseType')}</option>{liveTypes.map((type) => <option key={type} value={type}>{t(`live.types.${type}`)}</option>)}</select></label><Button disabled={draft === null || save.isPending} onClick={() => void submit()}>{t('live.saveActivities')}</Button></div>}
+    </>}
+    {message && <p role="status" aria-live="polite">{message}</p>}
+  </section>
+}
