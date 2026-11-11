@@ -22,6 +22,30 @@ describe('actividades en vivo', () => {
     expect(liveActivitySchema.safeParse({ type: 'quiz', config: {} }).success).toBe(false)
   })
 
+  it('valida rondas competitivas y matriz completa de evaluación ciega', () => {
+    const quizConfig = { options, correct: 'a', seconds: 30, explanation: 'Sí', concept: 'Concepto' }
+    expect(liveActivitySchema.safeParse({ type: 'quiz', config: quizConfig }).success).toBe(true)
+    expect(liveActivitySchema.safeParse({ type: 'quiz', config: { ...quizConfig, correct: 'x' } }).success).toBe(false)
+    expect(liveActivitySchema.safeParse({ type: 'quiz', config: { ...quizConfig, seconds: 4 } }).success).toBe(false)
+    expect(liveActivitySchema.safeParse({ type: 'quiz', config: { ...quizConfig, options: [options[0], options[0]] } }).success).toBe(false)
+    const quiz = liveActivitySchema.parse({ type: 'quiz', config: quizConfig })
+    expect(answerSchema(quiz).safeParse('a').success).toBe(true)
+    expect(answerSchema(quiz).safeParse('x').success).toBe(false)
+
+    const compareConfig = { options: [{ id: 'a', label: 'Modelo A', content: 'Texto', real_name: 'Uno' },
+      { id: 'b', label: 'Modelo B', content: 'Texto', real_name: 'Dos' }],
+      criteria: [{ id: 'c', label: 'Claridad', description: 'Legible' }], final_question: '¿Cuál eliges?', ask_comment: true, comment_max: 20 }
+    expect(liveActivitySchema.safeParse({ type: 'compare', config: compareConfig }).success).toBe(true)
+    expect(liveActivitySchema.safeParse({ type: 'compare', config: { ...compareConfig, options: [compareConfig.options[0]] } }).success).toBe(false)
+    const compare = liveActivitySchema.parse({ type: 'compare', config: compareConfig })
+    const valid = { ratings: { a: { c: 5 }, b: { c: 3 } }, choice: 'a', comment: 'Claro' }
+    expect(answerSchema(compare).safeParse(valid).success).toBe(true)
+    expect(answerSchema(compare).safeParse({ ...valid, ratings: { a: { c: 5 } } }).success).toBe(false)
+    expect(answerSchema(compare).safeParse({ ...valid, ratings: { ...valid.ratings, b: { c: 6 } } }).success).toBe(false)
+    expect(answerSchema(compare).safeParse({ ...valid, ratings: { ...valid.ratings, b: { c: 3, extra: 2 } } }).success).toBe(false)
+    expect(answerSchema(compare).safeParse({ ...valid, choice: 'x' }).success).toBe(false)
+  })
+
   it('valida respuestas según la configuración', () => {
     const multi = liveActivitySchema.parse({ type: 'poll_multi', config: { options, max_choices: 1 } })
     expect(answerSchema(multi).safeParse(['a']).success).toBe(true)

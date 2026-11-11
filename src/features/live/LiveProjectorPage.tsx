@@ -4,6 +4,26 @@ import { useParams } from 'react-router-dom'
 import { isLiveCode } from './live-utils'
 import { useProjectorState } from './live-api'
 import { LiveResults } from './LiveResults'
+import { CompareResults, QuizDistribution, RankingList, useRoundCountdown } from './LiveSpecial'
+
+type Run = NonNullable<ReturnType<typeof useProjectorState>['data']>['run']
+function SpecialProjector({ run, ranking }: { run: NonNullable<Run>; ranking: NonNullable<ReturnType<typeof useProjectorState>['data']>['ranking'] }) {
+  const { t } = useTranslation()
+  const config = run.config as { options: { id: string; label: string; real_name?: string }[]; seconds?: number; correct?: string; explanation?: string; description?: string }
+  const remaining = useRoundCountdown(run, config.seconds ?? 5)
+  if (run.type === 'quiz') return <div className="mx-auto max-w-5xl space-y-8">
+    <p role="timer" className="text-center text-6xl font-black">{run.paused ? t('live.responsesPaused') : `${remaining}s`}</p>
+    <div className="grid gap-4 md:grid-cols-2">{config.options.map((option, index) => <div key={option.id} className={`rounded-control border p-5 text-2xl ${run.reveal && option.id === config.correct ? 'border-green-500 bg-green-900/30' : 'border-border'}`}><span className="mr-3 text-brand">{String.fromCharCode(65 + index)}</span>{option.label}{run.reveal && option.id === config.correct ? ' ✓' : ''}</div>)}</div>
+    {run.show_results && <QuizDistribution run={run} />}
+    {run.reveal && config.explanation && <p className="text-center text-2xl">{config.explanation}</p>}
+    {run.show_ranking && <RankingList entries={ranking ?? []} />}
+  </div>
+  return <div className="mx-auto max-w-5xl space-y-7">
+    {config.description && <p className="whitespace-pre-line text-center text-2xl">{config.description}</p>}
+    <div className="grid gap-3 md:grid-cols-3">{config.options.map((option) => <div key={option.id} className="rounded-control border border-border p-4 text-center text-2xl font-bold transition-colors duration-500">{option.label}{run.reveal && option.real_name && <span className="block text-lg text-brand">↓ {option.real_name}</span>}</div>)}</div>
+    {run.show_results && <CompareResults run={run} />}
+  </div>
+}
 
 export function LiveProjectorPage() {
   const { t } = useTranslation()
@@ -50,7 +70,7 @@ export function LiveProjectorPage() {
             <h1 className="mx-auto mt-3 max-w-5xl text-4xl font-bold leading-tight md:text-6xl">{run.title}</h1>
             {typeof run.config.help === 'string' && <p className="mx-auto mt-4 max-w-4xl text-xl text-text-muted">{run.config.help}</p>}
           </div>
-          {run.show_results ? <LiveResults run={run} large /> :
+          {(run.type === 'quiz' || run.type === 'compare') ? <SpecialProjector key={run.id} run={run} ranking={state.data?.ranking} /> : run.show_results ? <LiveResults run={run} large /> :
             <p className="text-center text-2xl">{run.status === 'open' ? t(run.paused ? 'live.responsesPaused' : 'live.collecting') : t('live.responsesClosed')}</p>}
         </section>}
     </div>

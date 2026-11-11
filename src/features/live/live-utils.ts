@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const liveTypes = ['poll_single', 'poll_multi', 'vote', 'wordcloud', 'open', 'scale'] as const
+export const liveTypes = ['poll_single', 'poll_multi', 'vote', 'wordcloud', 'open', 'scale', 'quiz', 'compare'] as const
 export type LiveType = typeof liveTypes[number]
 
 const help = z.string().trim().min(1).max(200).optional()
@@ -20,6 +20,21 @@ const scaleConfig = z.object({
   labels: z.record(z.string().max(10), z.string().trim().max(200)).optional(),
   help, indicator_label: indicatorLabel,
 }).strict().refine((config) => config.scale_max > config.scale_min && config.scale_max - config.scale_min <= 20)
+const quizConfig = z.object({
+  options: z.array(z.object({ id: z.string().trim().min(1).max(100), label: z.string().trim().min(1).max(200) }).strict()).min(2).max(6)
+    .refine((items) => new Set(items.map((item) => item.id)).size === items.length),
+  correct: z.string(), explanation: z.string().max(400).optional(),
+  seconds: z.number().int().min(5).max(120), concept: z.string().max(80).optional(), help,
+}).strict().refine((config) => config.options.some((option) => option.id === config.correct))
+const compareConfig = z.object({
+  description: z.string().max(2000).optional(),
+  options: z.array(z.object({ id: z.string().trim().min(1).max(100), label: z.string().trim().min(1).max(200), content: z.string().max(20000), real_name: z.string().max(60) }).strict()).min(2).max(5)
+    .refine((items) => new Set(items.map((item) => item.id)).size === items.length),
+  criteria: z.array(z.object({ id: z.string().trim().min(1).max(100), label: z.string().trim().min(1).max(80), description: z.string().max(300) }).strict()).min(1).max(10)
+    .refine((items) => new Set(items.map((item) => item.id)).size === items.length),
+  scale_max: z.number().int().min(3).max(10).default(5), final_question: z.string().max(200),
+  ask_comment: z.boolean(), comment_max: z.number().int().min(0).max(200), help,
+}).strict()
 
 export const liveActivitySchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('poll_single'), config: choiceConfig }).strict(),
@@ -28,6 +43,8 @@ export const liveActivitySchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('wordcloud'), config: wordConfig }).strict(),
   z.object({ type: z.literal('open'), config: z.object({ help, indicator_label: indicatorLabel }).strict() }).strict(),
   z.object({ type: z.literal('scale'), config: scaleConfig }).strict(),
+  z.object({ type: z.literal('quiz'), config: quizConfig }).strict(),
+  z.object({ type: z.literal('compare'), config: compareConfig }).strict(),
 ])
 export type LiveActivity = z.output<typeof liveActivitySchema>
 
@@ -47,6 +64,24 @@ export function answerSchema(activity: LiveActivity) {
       return z.string().trim().min(1).max(280)
     case 'scale':
       return z.number().int().min(activity.config.scale_min).max(activity.config.scale_max)
+    case 'quiz':
+      return z.string().refine((id) => activity.config.options.some((option) => option.id === id))
+    case 'compare': {
+      const config = activity.config
+      return z.object({
+        ratings: z.record(z.string(), z.record(z.string(), z.number().int().min(1).max(config.scale_max))),
+        choice: z.string(), comment: z.string().max(config.comment_max).optional(),
+      }).strict().refine((answer) =>
+        config.options.some((option) => option.id === answer.choice) &&
+        (answer.comment === undefined || config.ask_comment) &&
+        Object.keys(answer.ratings).length === config.options.length &&
+        config.options.every((option) => {
+          const ratings = answer.ratings[option.id]
+          return ratings !== undefined && Object.keys(ratings).length === config.criteria.length &&
+            config.criteria.every((criterion) => ratings[criterion.id] !== undefined)
+        }),
+      )
+    }
   }
 }
 

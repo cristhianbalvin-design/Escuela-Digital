@@ -10,12 +10,12 @@ const activity = { id, plan_item_id: null, title: 'Pregunta', type: 'poll_single
 const response = { id, answer: 'a', hidden: false, pinned: false, participant_name: null }
 const results = { total: 1, rows: [{ id: 'a', label: 'Sí', count: 1, percent: 100 }], average: null, responses: [] }
 const run = { id, title: 'Pregunta', type: 'poll_single', config: activity.config,
-  status: 'open', paused: false, show_results: true, opened_at: at, closed_at: null, results }
+  status: 'open', paused: false, show_results: true, reveal: false, show_ranking: false, opened_at: at, closed_at: null, results }
 const controlState = {
   session: { id, offering_id: id, lesson_id: id, code, status: 'active', access_mode: 'both',
     ask_name: true, ask_company: false, created_at: at, ended_at: null },
   activities: [activity], runs: [{ ...run, activity_id: id, results: { ...results, responses: [response] } }],
-  participant_count: 1,
+  participant_count: 1, ranking: [],
 }
 const participantState = {
   session: { id, code, status: 'active', ask_name: true, ask_company: false },
@@ -54,13 +54,34 @@ describe('entradas de las RPC en vivo', () => {
   })
 })
 
-describe('salidas JSON de las 15 RPC en vivo', () => {
+describe('entradas nuevas de quiz y comparativa', () => {
+  it('valida configuración estricta y respuesta estructurada', () => {
+    const save = (type: string, config: unknown) => liveRpcInputSchemas.save_live_activities.safeParse({
+      p_lesson_id: id, p_items: [{ title: 'Ronda', type, config }],
+    }).success
+    const quiz = { options: [{ id: 'a', label: 'Sí' }, { id: 'b', label: 'No' }], correct: 'a', seconds: 15 }
+    expect(save('quiz', quiz)).toBe(true)
+    expect(save('quiz', { ...quiz, correct: 'c' })).toBe(false)
+    expect(save('quiz', { ...quiz, seconds: 121 })).toBe(false)
+    expect(save('quiz', { ...quiz, text: 'No se usa' })).toBe(false)
+    const compare = { options: [{ id: 'a', label: 'Modelo A', content: 'Texto', real_name: 'Uno' },
+      { id: 'b', label: 'Modelo B', content: 'Texto', real_name: 'Dos' }],
+      criteria: [{ id: 'c', label: 'Claridad', description: 'Se entiende' }], final_question: '¿Cuál?', ask_comment: true, comment_max: 100 }
+    expect(save('compare', compare)).toBe(true)
+    expect(save('compare', { ...compare, options: [compare.options[0], compare.options[0]] })).toBe(false)
+    expect(save('compare', { ...compare, scale_max: 11 })).toBe(false)
+    expect(liveRpcInputSchemas.submit_live_response.safeParse({ p_code: code, p_token: token, p_run_id: id,
+      p_answer: { ratings: { a: { c: 5 }, b: { c: 3 } }, choice: 'a' } }).success).toBe(true)
+  })
+})
+
+describe('salidas JSON de las 17 RPC en vivo', () => {
   const examples: Record<LiveRpcName, unknown> = {
     get_live_activities: [activity], save_live_activities: [activity],
     create_live_session: controlState, get_live_control_state: controlState,
     launch_live_run: controlState, close_live_run: controlState,
     set_live_run_visibility: controlState, moderate_live_response: controlState,
-    set_live_run_paused: controlState,
+    set_live_run_paused: controlState, set_live_run_reveal: controlState, set_live_run_ranking: controlState,
     merge_live_term: controlState, end_live_session: controlState,
     join_live_session: { token, state: participantState },
     get_live_state: participantState, submit_live_response: participantState,
@@ -108,5 +129,36 @@ describe('salidas JSON de las 15 RPC en vivo', () => {
       run: { ...run, results: { ...results, responses: [{ ...response, participant_name: 'Ana' }] } } }).success).toBe(false)
     expect(liveRpcOutputSchemas.get_live_state.safeParse({ ...participantState,
       run: { ...run, results: { ...results, responses: [{ ...response, hidden: true }] } } }).success).toBe(false)
+  })
+
+  it('acepta la configuración pública ciega y resultados de quiz y comparativa', () => {
+    const quiz = { options: [{ id: 'a', label: 'Sí' }, { id: 'b', label: 'No' }], correct: 'a', seconds: 30, explanation: 'Porque sí' }
+    const quizRows = [{ id: 'a', label: 'Sí', count: 1, percent: 100, correct: null }, { id: 'b', label: 'No', count: 0, percent: 0, correct: null }]
+    const publicQuiz = { ...run, type: 'quiz', config: { options: quiz.options, seconds: 30 }, results: { total: 1, rows: quizRows, average: null, responses: [] } }
+    expect(liveRpcOutputSchemas.get_projector_state.safeParse({ ...projectorState, run: publicQuiz }).success).toBe(true)
+    expect(liveRpcOutputSchemas.get_live_state.safeParse({ ...participantState, run: publicQuiz }).success).toBe(true)
+    expect(liveRpcOutputSchemas.get_projector_state.safeParse({ ...projectorState, run: { ...publicQuiz, config: quiz } }).success).toBe(false)
+    expect(liveRpcOutputSchemas.get_live_control_state.safeParse({ ...controlState, runs: [{ ...run, activity_id: id, type: 'quiz', config: quiz,
+      results: { ...publicQuiz.results, correct_percent: 100, avg_seconds: 2, rows: quizRows.map((row) => ({ ...row, correct: row.id === 'a' })) } }] }).success).toBe(true)
+
+    const compare = { options: [{ id: 'a', label: 'Modelo A', content: 'Texto', real_name: 'GPT' }, { id: 'b', label: 'Modelo B', content: 'Otro', real_name: 'Gemini' }],
+      criteria: [{ id: 'claridad', label: 'Claridad', description: 'Se entiende' }], final_question: '¿Cuál prefieres?', ask_comment: true, comment_max: 200 }
+    const matrix = compare.options.map((option) => ({ option_id: option.id, label: option.label, real_name: null,
+      criteria: [{ criterion_id: 'claridad', average: 4 }], overall: 4, votes: option.id === 'a' ? 1 : 0, vote_percent: option.id === 'a' ? 100 : 0 }))
+    const publicCompare = { ...run, type: 'compare', config: { ...compare, options: compare.options.map((option) => ({ id: option.id, label: option.label, content: option.content })) },
+      results: { total: 1, rows: [], average: null, responses: [], matrix } }
+    expect(liveRpcOutputSchemas.get_projector_state.safeParse({ ...projectorState, run: publicCompare }).success).toBe(true)
+    expect(liveRpcOutputSchemas.get_projector_state.safeParse({ ...projectorState, run: { ...publicCompare, config: compare } }).success).toBe(false)
+    expect(liveRpcOutputSchemas.get_projector_state.safeParse({ ...projectorState, run: { ...publicCompare, results: { ...publicCompare.results, comments: ['Bien'] } } }).success).toBe(false)
+    expect(liveRpcOutputSchemas.get_projector_state.safeParse({ ...projectorState, run: { ...publicCompare, reveal: true,
+      config: compare, results: { ...publicCompare.results, comments: ['Bien'], matrix: matrix.map((row) => ({ ...row, real_name: row.option_id === 'a' ? 'GPT' : 'Gemini' })) } } }).success).toBe(true)
+  })
+
+  it('valida ranking y nuevas entradas', () => {
+    const rank = { participant_id: id, name: 'Ana', points: 950, correct: 1, answered: 1, best_streak: 1, rank: 1 }
+    expect(liveRpcOutputSchemas.get_live_state.safeParse({ ...participantState, ranking: [rank], my_rank: { rank: 1, points: 950, streak_current: 1 } }).success).toBe(true)
+    expect(liveRpcOutputSchemas.get_live_state.safeParse({ ...participantState, ranking: [{ ...rank, secret: true }] }).success).toBe(false)
+    expect(liveRpcInputSchemas.set_live_run_reveal.safeParse({ p_run_id: id, p_reveal: true }).success).toBe(true)
+    expect(liveRpcInputSchemas.set_live_run_ranking.safeParse({ p_run_id: id, p_show: true }).success).toBe(true)
   })
 })

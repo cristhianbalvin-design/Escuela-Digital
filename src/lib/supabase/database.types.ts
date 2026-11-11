@@ -1827,6 +1827,8 @@ export type Database = {
       close_live_run: { Args: { p_run_id: string }; Returns: Json }
       set_live_run_visibility: { Args: { p_run_id: string; p_show_results: boolean }; Returns: Json }
       set_live_run_paused: { Args: { p_run_id: string; p_paused: boolean }; Returns: Json }
+      set_live_run_reveal: { Args: { p_run_id: string; p_reveal: boolean }; Returns: Json }
+      set_live_run_ranking: { Args: { p_run_id: string; p_show: boolean }; Returns: Json }
       moderate_live_response: { Args: { p_response_id: string; p_hidden: boolean; p_pinned: boolean }; Returns: Json }
       merge_live_term: { Args: { p_run_id: string; p_term: string; p_merged_into: string | null; p_hidden: boolean }; Returns: Json }
       end_live_session: { Args: { p_session_id: string }; Returns: Json }
