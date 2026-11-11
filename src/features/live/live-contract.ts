@@ -11,17 +11,21 @@ const lessonId = z.object({ p_lesson_id: uuid }).strict()
 const option = z.object({
   id: z.string().refine((value) => value.trim().length >= 1 && value.trim().length <= 100),
   label: z.string().refine((value) => value.trim().length >= 1 && value.trim().length <= 200),
+  score: z.number().int().min(0).max(100).optional(),
 }).strict()
+const help = z.string().refine((value) => value.trim().length >= 1 && value.trim().length <= 200).optional()
+const indicator_label = z.string().refine((value) => value.trim().length >= 1 && value.trim().length <= 60).optional()
 const options = z.array(option).min(2).max(20).refine((items) => new Set(items.map((item) => item.id)).size === items.length)
-const choiceConfig = z.object({ options }).strict()
-const multiConfig = z.object({ options, max_choices: z.number().int().min(1).max(20).optional() }).strict()
+const choiceConfig = z.object({ options, help, indicator_label }).strict()
+const multiConfig = z.object({ options, max_choices: z.number().int().min(1).max(20).optional(), help, indicator_label }).strict()
   .refine((config) => config.max_choices === undefined || config.max_choices <= config.options.length)
-const wordConfig = z.object({ max_answers: z.number().int().min(1).max(20) }).strict()
+const wordConfig = z.object({ max_answers: z.number().int().min(1).max(20), help, indicator_label }).strict()
 const scaleConfig = z.object({
   scale_min: z.number().int().min(-100).max(100), scale_max: z.number().int().min(-100).max(100),
   labels: z.record(z.string().max(10), z.string().refine((value) => value.trim().length <= 200)).optional(),
+  help, indicator_label,
 }).strict().refine((config) => config.scale_max > config.scale_min && config.scale_max - config.scale_min <= 20)
-const emptyConfig = z.object({}).strict()
+const emptyConfig = z.object({ help, indicator_label }).strict()
 const activityType = z.enum(['poll_single', 'poll_multi', 'vote', 'wordcloud', 'open', 'scale'])
 const configForType = {
   poll_single: choiceConfig, poll_multi: multiConfig, vote: choiceConfig,
@@ -31,7 +35,7 @@ const config = z.record(z.string(), z.unknown())
 const activityMatchesConfig = (value: { type: z.infer<typeof activityType>; config: Record<string, unknown> }) =>
   configForType[value.type].safeParse(value.config).success
 const activityMatchesInputConfig = (value: { type: z.infer<typeof activityType>; config: Record<string, unknown> }) =>
-  activityMatchesConfig(value) || (value.type === 'wordcloud' && emptyConfig.safeParse(value.config).success)
+  activityMatchesConfig(value) || (value.type === 'wordcloud' && Object.keys(value.config).length === 0)
 const activityInput = z.object({
   id: uuid.optional(), plan_item_id: uuid.nullable().optional(),
   title: z.string().trim().min(1).max(200), type: activityType, config,
@@ -50,6 +54,7 @@ export const liveRpcInputSchemas = {
   launch_live_run: z.object({ p_session_id: uuid, p_activity_id: uuid }).strict(),
   close_live_run: runId,
   set_live_run_visibility: z.object({ p_run_id: uuid, p_show_results: z.boolean() }).strict(),
+  set_live_run_paused: z.object({ p_run_id: uuid, p_paused: z.boolean() }).strict(),
   moderate_live_response: z.object({ p_response_id: uuid, p_hidden: z.boolean(), p_pinned: z.boolean() }).strict(),
   merge_live_term: z.object({ p_run_id: uuid, p_term: z.string().min(1).max(30), p_merged_into: z.string().min(1).max(30).nullable(), p_hidden: z.boolean() }).strict(),
   end_live_session: sessionId,
@@ -93,6 +98,7 @@ const publicResultsOutput = resultsOutput.safeExtend({
 const runOutput = z.object({
   id: uuid, title: z.string(), type: activityType,
   config, status: z.enum(['open', 'closed']),
+  paused: z.boolean(),
   show_results: z.boolean(), opened_at: timestamp, closed_at: timestamp.nullable(),
   results: publicResultsOutput.nullable(),
 }).strict().refine(activityMatchesConfig)
@@ -127,6 +133,7 @@ export const liveRpcOutputSchemas = {
   launch_live_run: controlStateOutput,
   close_live_run: controlStateOutput,
   set_live_run_visibility: controlStateOutput,
+  set_live_run_paused: controlStateOutput,
   moderate_live_response: controlStateOutput,
   merge_live_term: controlStateOutput,
   end_live_session: controlStateOutput,

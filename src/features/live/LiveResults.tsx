@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { LiveRpcOutput } from './live-contract'
+import { averageSelections, liveActivitySchema, topTerms, weightedScore } from './live-utils'
 
 type Run = NonNullable<LiveRpcOutput<'get_projector_state'>['run']>
 type Results = NonNullable<Run['results']>
@@ -33,6 +34,7 @@ export function LiveResults({ run, large = false }: { run: Run; large?: boolean 
             {row.term}
           </span>)}
         </div>}
+      {terms.length > 0 && <div><h3 className="font-semibold">{t('live.topTerms')}</h3><ol className="list-decimal pl-6">{topTerms(terms, 5).map((row) => <li key={row.term}>{row.term} · {t('live.mentions', { count: row.count })}</li>)}</ol></div>}
     </section>
   }
 
@@ -52,6 +54,11 @@ export function LiveResults({ run, large = false }: { run: Run; large?: boolean 
   const rows = results.rows.filter((row) => isChoice(row) || isScale(row))
   const labels = run.type === 'scale' && 'labels' in run.config && run.config.labels !== null && typeof run.config.labels === 'object'
     ? run.config.labels as Record<string, string> : {}
+  const average = run.type === 'poll_multi' ? averageSelections(rows.filter(isChoice), results.total) : null
+  const parsed = liveActivitySchema.safeParse({ type: run.type, config: run.config })
+  const scoredConfig = parsed.success && (parsed.data.type === 'poll_single' || parsed.data.type === 'vote') ? parsed.data.config : null
+  const indicator = scoredConfig?.indicator_label
+    ? weightedScore(scoredConfig.options, rows.filter(isChoice), results.total) : null
   return <section aria-label={t('live.results')} className="space-y-4">
     <h2 className="font-semibold">{t('live.results')}</h2>
     {rows.length === 0 ? <p>{t('live.noResults')}</p> :
@@ -69,5 +76,11 @@ export function LiveResults({ run, large = false }: { run: Run; large?: boolean 
       })}</ul>}
     {run.type === 'scale' && results.average !== null &&
       <p className="text-lg font-semibold">{t('live.average')}: {results.average.toFixed(1)}</p>}
+    {average !== null && <p className="text-lg font-semibold">{t('live.averageSelections')}: {average.toFixed(1)}</p>}
+    {indicator && <div className="rounded-card border border-border bg-surface-elevated p-4">
+      <h3 className="font-semibold">{t('live.adoptionLevel')}</h3>
+      <p className="text-sm text-text-muted">{scoredConfig?.indicator_label}</p>
+      <p className="text-xl font-bold">{indicator.average.toFixed(1)} / {indicator.max} · {t(`live.levels.${indicator.level}`)}</p>
+    </div>}
   </section>
 }

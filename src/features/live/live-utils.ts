@@ -3,28 +3,31 @@ import { z } from 'zod'
 export const liveTypes = ['poll_single', 'poll_multi', 'vote', 'wordcloud', 'open', 'scale'] as const
 export type LiveType = typeof liveTypes[number]
 
-const optionSchema = z.object({ id: z.string().trim().min(1).max(100), label: z.string().trim().min(1).max(200) }).strict()
+const help = z.string().trim().min(1).max(200).optional()
+const indicatorLabel = z.string().trim().min(1).max(60).optional()
+const optionSchema = z.object({ id: z.string().trim().min(1).max(100), label: z.string().trim().min(1).max(200), score: z.number().int().min(0).max(100).optional() }).strict()
 const optionsSchema = z.array(optionSchema).min(2).max(20).refine(
   (options) => new Set(options.map((option) => option.id)).size === options.length,
   'Las opciones deben tener identificadores diferentes.',
 )
-const choiceConfig = z.object({ options: optionsSchema }).strict()
-const multiConfig = z.object({ options: optionsSchema, max_choices: z.number().int().min(1).max(20).optional() }).strict()
+const choiceConfig = z.object({ options: optionsSchema, help, indicator_label: indicatorLabel }).strict()
+const multiConfig = z.object({ options: optionsSchema, max_choices: z.number().int().min(1).max(20).optional(), help, indicator_label: indicatorLabel }).strict()
   .refine((config) => config.max_choices === undefined || config.max_choices <= config.options.length)
-const wordConfig = z.object({ max_answers: z.number().int().min(1).max(20).default(3) }).strict()
+const wordConfig = z.object({ max_answers: z.number().int().min(1).max(20).default(3), help, indicator_label: indicatorLabel }).strict()
 const scaleConfig = z.object({
   scale_min: z.number().int().min(-100).max(100),
   scale_max: z.number().int().min(-100).max(100),
   labels: z.record(z.string().max(10), z.string().trim().max(200)).optional(),
+  help, indicator_label: indicatorLabel,
 }).strict().refine((config) => config.scale_max > config.scale_min && config.scale_max - config.scale_min <= 20)
 
 export const liveActivitySchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('poll_single'), config: choiceConfig }),
-  z.object({ type: z.literal('vote'), config: choiceConfig }),
-  z.object({ type: z.literal('poll_multi'), config: multiConfig }),
-  z.object({ type: z.literal('wordcloud'), config: wordConfig }),
-  z.object({ type: z.literal('open'), config: z.object({}).strict() }),
-  z.object({ type: z.literal('scale'), config: scaleConfig }),
+  z.object({ type: z.literal('poll_single'), config: choiceConfig }).strict(),
+  z.object({ type: z.literal('vote'), config: choiceConfig }).strict(),
+  z.object({ type: z.literal('poll_multi'), config: multiConfig }).strict(),
+  z.object({ type: z.literal('wordcloud'), config: wordConfig }).strict(),
+  z.object({ type: z.literal('open'), config: z.object({ help, indicator_label: indicatorLabel }).strict() }).strict(),
+  z.object({ type: z.literal('scale'), config: scaleConfig }).strict(),
 ])
 export type LiveActivity = z.output<typeof liveActivitySchema>
 
@@ -100,4 +103,26 @@ export function aggregateTerms(answers: string[][], moderation: Record<string, {
     counts.set(target, (counts.get(target) ?? 0) + 1)
   }
   return [...counts].map(([term, count]) => ({ term, count })).sort((a, b) => b.count - a.count || a.term.localeCompare(b.term, 'es'))
+}
+
+export function topTerms(rows: { term: string; count: number }[], limit: number): { term: string; count: number }[] {
+  return [...rows].filter((row) => row.count > 0)
+    .sort((a, b) => b.count - a.count || a.term.localeCompare(b.term, 'es'))
+    .slice(0, Math.max(0, limit))
+}
+
+export function averageSelections(rows: { count: number }[], total: number): number | null {
+  return total > 0 ? rows.reduce((sum, row) => sum + row.count, 0) / total : null
+}
+
+export type AdoptionLevel = 'initial' | 'basic' | 'intermediate' | 'advanced' | 'leader'
+export function weightedScore(options: { id: string; score?: number }[], rows: { id: string; count: number }[], total: number):
+  { average: number; max: number; level: AdoptionLevel } | null {
+  if (total <= 0 || options.length === 0 || options.some((option) => option.score === undefined)) return null
+  const max = Math.max(...options.map((option) => option.score!))
+  const counts = new Map(rows.map((row) => [row.id, row.count]))
+  const average = options.reduce((sum, option) => sum + option.score! * (counts.get(option.id) ?? 0), 0) / total
+  const ratio = max > 0 ? average / max : 0
+  const level = ratio < .25 ? 'initial' : ratio < .5 ? 'basic' : ratio < .75 ? 'intermediate' : ratio < .9 ? 'advanced' : 'leader'
+  return { average, max, level }
 }

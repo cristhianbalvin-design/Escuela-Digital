@@ -48,9 +48,10 @@ export function LiveProjectorPage() {
         <section className="space-y-10">
           <div className="text-center"><p className="text-xl font-semibold uppercase text-text-muted">{t(`live.types.${run.type}`)}</p>
             <h1 className="mx-auto mt-3 max-w-5xl text-4xl font-bold leading-tight md:text-6xl">{run.title}</h1>
+            {typeof run.config.help === 'string' && <p className="mx-auto mt-4 max-w-4xl text-xl text-text-muted">{run.config.help}</p>}
           </div>
           {run.show_results ? <LiveResults run={run} large /> :
-            <p className="text-center text-2xl">{run.status === 'open' ? t('live.collecting') : t('live.responsesClosed')}</p>}
+            <p className="text-center text-2xl">{run.status === 'open' ? t(run.paused ? 'live.responsesPaused' : 'live.collecting') : t('live.responsesClosed')}</p>}
         </section>}
     </div>
   </main>

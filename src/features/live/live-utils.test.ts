@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aggregateChoices, aggregateScale, aggregateTerms, answerSchema, generateLiveCode, isLiveCode, liveActivitySchema, normalizeTerm } from './live-utils'
+import { aggregateChoices, aggregateScale, aggregateTerms, answerSchema, averageSelections, generateLiveCode, isLiveCode, liveActivitySchema, normalizeTerm, topTerms, weightedScore } from './live-utils'
 
 const options = [{ id: 'a', label: 'Primera' }, { id: 'b', label: 'Segunda' }]
 
@@ -15,6 +15,10 @@ describe('actividades en vivo', () => {
     expect(liveActivitySchema.safeParse({ type: 'scale', config: { scale_min: 5, scale_max: 1 } }).success).toBe(false)
     expect(liveActivitySchema.safeParse({ type: 'scale', config: { scale_min: 0, scale_max: 21 } }).success).toBe(false)
     expect(liveActivitySchema.safeParse({ type: 'open', config: { extra: true } }).success).toBe(false)
+    expect(liveActivitySchema.safeParse({ type: 'open', config: { help: 'Una pista' } }).success).toBe(true)
+    expect(liveActivitySchema.safeParse({ type: 'open', config: { help: ' ' } }).success).toBe(false)
+    expect(liveActivitySchema.safeParse({ type: 'poll_single', config: { options: [{ ...options[0], score: 100 }, { ...options[1], score: 0 }], indicator_label: 'Uso' } }).success).toBe(true)
+    expect(liveActivitySchema.safeParse({ type: 'vote', config: { options: [{ ...options[0], score: -1 }, options[1] ] } }).success).toBe(false)
     expect(liveActivitySchema.safeParse({ type: 'quiz', config: {} }).success).toBe(false)
   })
 
@@ -64,6 +68,21 @@ describe('resultados y códigos', () => {
   it('agrupa y modera términos sin mostrar términos ocultos', () => {
     expect(aggregateTerms([['Ágil', 'ágil'], ['rápido', 'oculto']], { rapido: { mergedInto: 'agil' }, oculto: { hidden: true } })).toEqual([{ term: 'agil', count: 3 }])
     expect(aggregateTerms([['a']], { a: { mergedInto: 'b' }, b: { hidden: true } })).toEqual([])
+  })
+  it('deriva top, promedio múltiple y niveles ponderados sin mutar filas', () => {
+    const rows = [{ term: 'b', count: 2 }, { term: 'a', count: 2 }, { term: 'c', count: 1 }]
+    expect(topTerms(rows, 2)).toEqual([{ term: 'a', count: 2 }, { term: 'b', count: 2 }])
+    expect(rows[0]?.term).toBe('b')
+    expect(averageSelections([{ count: 3 }, { count: 2 }], 2)).toBe(2.5)
+    expect(averageSelections([], 0)).toBeNull()
+    const scored = [{ id: 'a', score: 100 }, { id: 'b', score: 0 }]
+    expect(weightedScore(scored, [{ id: 'a', count: 9 }, { id: 'b', count: 1 }], 10)).toEqual({ average: 90, max: 100, level: 'leader' })
+    expect(weightedScore(scored, [{ id: 'a', count: 2 }, { id: 'b', count: 8 }], 10)?.level).toBe('initial')
+    for (const [count, level] of [[25, 'basic'], [50, 'intermediate'], [75, 'advanced'], [90, 'leader']] as const) {
+      expect(weightedScore(scored, [{ id: 'a', count }, { id: 'b', count: 100 - count }], 100)?.level).toBe(level)
+    }
+    expect(weightedScore([{ id: 'a', score: 100 }, { id: 'b' }], [], 1)).toBeNull()
+    expect(weightedScore(scored, [], 0)).toBeNull()
   })
   it('genera códigos válidos y rechaza caracteres ambiguos', () => {
     expect(isLiveCode(generateLiveCode())).toBe(true)

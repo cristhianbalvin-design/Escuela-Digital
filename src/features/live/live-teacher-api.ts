@@ -90,6 +90,7 @@ export const useCreateLiveSession = () => useControlMutation('create_live_sessio
 export const useLaunchLiveRun = () => useControlMutation('launch_live_run')
 export const useCloseLiveRun = () => useControlMutation('close_live_run')
 export const useSetLiveRunVisibility = () => useControlMutation('set_live_run_visibility')
+export const useSetLiveRunPaused = () => useControlMutation('set_live_run_paused')
 export const useModerateLiveResponse = () => useControlMutation('moderate_live_response')
 export const useMergeLiveTerm = () => useControlMutation('merge_live_term')
 export const useEndLiveSession = () => useControlMutation('end_live_session')

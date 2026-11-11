@@ -6,7 +6,7 @@ import type { LiveRpcOutput } from './live-contract'
 import { LiveResults } from './LiveResults'
 import {
   useCloseLiveRun, useCreateLiveSession, useEndLiveSession, useLaunchLiveRun,
-  useLiveControlState, useMergeLiveTerm, useModerateLiveResponse, useSetLiveRunVisibility,
+  useLiveControlState, useMergeLiveTerm, useModerateLiveResponse, useSetLiveRunVisibility, useSetLiveRunPaused,
 } from './live-teacher-api'
 
 type State = LiveRpcOutput<'get_live_control_state'>
@@ -19,14 +19,15 @@ function writeSession(offeringId: string, sessionId: string) { try { localStorag
 
 function RunView({ run, participantCount }: { run: Run; participantCount: number }) {
   const { t } = useTranslation()
-  const count = run.results.total
+  const count = run.results.responses.length
   const percent = participantCount ? Math.min(100, Math.round(count * 100 / participantCount)) : 0
   const displayRun: PublicRun = { ...run, show_results: true, results: { ...run.results,
     responses: run.results.responses.filter((response) => !response.hidden).map((response) => ({ ...response, hidden: false as const, participant_name: null })) } }
   return <div className="grid gap-3 rounded-control border border-border p-3">
     <h5 className="font-semibold">{run.title}</h5>
-    <p aria-live="polite">{t('live.responseCount', { count, total: participantCount })}</p>
-    <progress className="w-full" max={100} value={percent} aria-label={t('live.responseProgress')} />
+    {typeof run.config.help === 'string' && <p className="text-sm text-text-muted">{run.config.help}</p>}
+    {run.status === 'open' && <><p aria-live="polite">{t('live.responseCount', { count, total: participantCount, percent })}</p>
+      <progress className="w-full" max={100} value={percent} aria-label={t('live.responseProgress')} /></>}
     <LiveResults run={displayRun} />
   </div>
 }
@@ -48,6 +49,7 @@ export function LiveControlPanel({ offeringId, lessonId, launchPlanItemId }: {
   const launch = useLaunchLiveRun()
   const close = useCloseLiveRun()
   const visibility = useSetLiveRunVisibility()
+  const pause = useSetLiveRunPaused()
   const moderate = useModerateLiveResponse()
   const merge = useMergeLiveTerm()
   const end = useEndLiveSession()
@@ -60,6 +62,8 @@ export function LiveControlPanel({ offeringId, lessonId, launchPlanItemId }: {
   const latest = openRun ?? state?.runs.at(-1)
   const activities = [...(state?.activities ?? [])].sort((a, b) =>
     Number(b.plan_item_id === launchPlanItemId) - Number(a.plan_item_id === launchPlanItemId) || a.position - b.position)
+  const nextActivity = [...(state?.activities ?? [])].sort((a, b) => a.position - b.position)
+    .find((activity) => !state?.runs.some((run) => run.activity_id === activity.id))
   const link = session ? new URL(`/clase/${session.code}${window.location.search}`, window.location.origin).href : ''
 
   useEffect(() => {
@@ -94,6 +98,7 @@ export function LiveControlPanel({ offeringId, lessonId, launchPlanItemId }: {
     return <div className="grid gap-3"><RunView run={run} participantCount={state?.participant_count ?? 0} />
       <div className="flex flex-wrap gap-2">
         {run.status === 'open' && <Button disabled={close.isPending} onClick={() => void act(() => close.mutateAsync({ p_run_id: run.id }))}>{t('live.closeRound')}</Button>}
+        {run.status === 'open' && <Button variant="secondary" disabled={pause.isPending} onClick={() => void act(() => pause.mutateAsync({ p_run_id: run.id, p_paused: !run.paused }))}>{t(run.paused ? 'live.resumeRound' : 'live.pauseRound')}</Button>}
         <Button variant="secondary" disabled={visibility.isPending} onClick={() => void act(() => visibility.mutateAsync({ p_run_id: run.id, p_show_results: !run.show_results }))}>{t(run.show_results ? 'live.hideResults' : 'live.showResults')}</Button>
       </div>
       {run.type === 'open' && <div className="grid gap-2"><h6 className="font-semibold">{t('live.moderation')}</h6>{run.results.responses.map((response) => <div key={response.id} className="rounded-control border border-border p-2"><p className="break-words">{String(response.answer)}</p><p className="text-sm text-text-muted">{response.participant_name ?? t('live.unnamed')}</p><div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={moderate.isPending} onClick={() => void act(() => moderate.mutateAsync({ p_response_id: response.id, p_hidden: !response.hidden, p_pinned: response.pinned }))}>{t(response.hidden ? 'live.unhideResponse' : 'live.hideResponse')}</Button><Button variant="secondary" disabled={moderate.isPending} onClick={() => void act(() => moderate.mutateAsync({ p_response_id: response.id, p_hidden: response.hidden, p_pinned: !response.pinned }))}>{t(response.pinned ? 'live.unpinResponse' : 'live.pinResponse')}</Button></div></div>)}</div>}
@@ -111,8 +116,9 @@ export function LiveControlPanel({ offeringId, lessonId, launchPlanItemId }: {
       <div className="flex flex-wrap items-center gap-4"><div><p>{t('live.code')}</p><p className="font-mono text-4xl font-bold tracking-widest text-brand" aria-live="polite">{session.code}</p></div>{qr && <img src={qr} className="size-32 rounded-control bg-white p-1" alt={t('live.qrAlt', { code: session.code })} />}{qrError && <p role="status">{t('live.qrError')}</p>}</div>
       <p className="break-all"><a className="text-brand underline" href={link} target="_blank" rel="noopener noreferrer">{link}</a></p>
       <div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => void navigator.clipboard.writeText(link).then(() => setMessage(t('live.linkCopied'))).catch(() => setMessage(t('live.copyError')))}>{t('live.copyLink')}</Button><Button variant="secondary" onClick={() => window.open(`/clase/${session.code}/proyector${window.location.search}`, '_blank', 'noopener,noreferrer')}>{t('live.openProjector')}</Button></div>
-      <p aria-live="polite">{t('live.participants', { count: state?.participant_count ?? 0 })}</p>
+      <p aria-live="polite">{t('live.connected', { count: state?.participant_count ?? 0 })}</p>
       {relevant && <><h5 className="font-semibold">{t('live.editorTitle')}</h5><ul className="grid gap-2">{activities.map((activity) => <li key={activity.id} className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-border p-2"><span>{activity.title} · {t(`live.types.${activity.type}`)}</span><Button disabled={!!openRun || launch.isPending || !active} onClick={() => void act(() => launch.mutateAsync({ p_session_id: session.id, p_activity_id: activity.id }))}>{t('live.launch')}</Button></li>)}</ul>
+        {nextActivity && <Button className="w-fit" disabled={!!openRun || launch.isPending || !active} onClick={() => void act(() => launch.mutateAsync({ p_session_id: session.id, p_activity_id: nextActivity.id }))}>{t('live.launchNext')}</Button>}
         {latest && <><h5 className="font-semibold">{t(openRun ? 'live.openRound' : 'live.latestRound')}</h5>{targetRun(latest)}</>}
         {state?.runs.some((run) => run.status === 'closed') && <details><summary className="cursor-pointer font-semibold">{t('live.roundHistory')}</summary><div className="grid gap-4 pt-3">{state.runs.filter((run) => run.status === 'closed').map((run) => <RunView key={run.id} run={run} participantCount={state.participant_count} />)}</div></details>}
       </>}
