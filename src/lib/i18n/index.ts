@@ -4,6 +4,10 @@ import { initReactI18next } from 'react-i18next'
 export const resources = {
   es: {
     translation: {
+      planning: {
+        title: 'Planificación de la sesión', tab: 'Guía de clase', activity: 'Actividad', type: 'Tipo', minutes: 'Minutos (opcional)', notes: 'Notas', up: 'Subir actividad', down: 'Bajar actividad', delete: 'Eliminar', add: 'Agregar actividad', save: 'Guardar planificación', saved: 'Planificación guardada.', invalid: 'Revisa el título, los minutos y las notas.', importLabel: 'Importar actividades, una por línea', importPlaceholder: 'Título | minutos', import: 'Importar', importErrors: 'Revisa las líneas: {{lines}}', files: 'Archivos de apoyo', upload: 'Adjuntar PDF, Word o PPT (máximo 25 MB)', removeFile: 'Quitar archivo', fileError: 'No se pudo guardar o quitar el archivo. Revisa el formato y tamaño.', loading: 'Cargando planificación…', error: 'No se pudo cargar o guardar la planificación.', empty: 'Todavía no hay actividades.', progress: '{{done}} de {{total}} actividades completadas', progressLabel: 'Progreso de la sesión', duration: '{{total}} minutos planificados', overTime: 'Supera la duración de la sesión', next: 'Siguiente actividad', unscheduled: 'Sin fecha',
+        kinds: { explicacion: 'Explicación', practica: 'Práctica', evaluacion: 'Evaluación', descanso: 'Descanso', interactiva: 'Interactiva', otro: 'Otro' },
+      },
       appName: 'Escuela Digital',
       school: 'Escuela',
       client: 'Cliente',
@@ -1161,6 +1165,7 @@ export const resources = {
           profile: 'Perfil',
         },
         coordinator: {
+          planning: 'Gu?as de clase',
           summary: 'Resumen',
           students: 'Alumnos',
           offerings: 'Ediciones',

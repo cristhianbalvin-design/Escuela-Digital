@@ -27,6 +27,6 @@ export const navigation: Record<Role, NavItem[]> = {
     { key: 'profile', segment: 'perfil' },
   ],
   // Pendientes de construir: resumen, alumnos, ediciones y reportes.
-  coordinator: [{ key: 'certificates', segment: 'certificados' }],
+  coordinator: [{ key: 'certificates', segment: 'certificados' }, { key: 'planning', segment: 'guias' }],
   platform: [{ key: 'home', segment: 'inicio' }],
 }

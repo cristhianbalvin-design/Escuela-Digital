@@ -1,3 +1,4 @@
+import { CoordinationPlanDetail, CoordinationPlans } from '@/features/planning/CoordinationPlans'
 import { useEffect, useMemo, useState } from 'react'
 import {
   BrowserRouter,
@@ -319,6 +320,8 @@ function TenantView({ tenant }: { tenant: TenantLocation }) {
                             ? <StudentCertificatesPage />
                             : role === 'coordinator' && key === 'certificates'
                               ? <CoordinationCertificatesPage />
+                              : role === 'coordinator' && key === 'planning'
+                              ? <CoordinationPlans />
                               : role === 'admin' && key === 'users'
                               ? <PeoplePage />
                               : role === 'admin' && key === 'certificates'
@@ -346,6 +349,7 @@ function TenantView({ tenant }: { tenant: TenantLocation }) {
                 <Route path="ediciones/:offeringId" element={<OfferingDetailPage />} />
               </>
             )}
+            {role === 'coordinator' && <Route path="guias/:offeringId" element={<CoordinationPlanDetail />} />}
             {role === 'student' && (
               <>
                 <Route path="cursos/:offeringId" element={<StudentCoursePage />} />

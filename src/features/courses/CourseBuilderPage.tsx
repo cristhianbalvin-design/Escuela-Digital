@@ -1,3 +1,4 @@
+import { PlanEditor } from '@/features/planning/Planning'
 import { useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -334,6 +335,7 @@ function LessonEditor({
       ) : (
         <LessonContent content={lesson.content} />
       )}
+      <PlanEditor lessonId={lesson.id} tenantId={lesson.tenant_id} editable={editable || contentEditable} />
       <LessonResources lessonId={lesson.id} tenantId={lesson.tenant_id}
         versionId={lesson.version_id} editable={editable || contentEditable} />
       {editable && (

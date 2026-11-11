@@ -1866,6 +1866,13 @@ export type Database = {
       get_attendance_summary: { Args: { p_offering_id: string }; Returns: Json }
       get_my_attendance: { Args: { p_enrollment_id: string }; Returns: Json }
       get_offering_schedule: { Args: { p_offering_id: string }; Returns: Json }
+      get_lesson_plan: { Args: { p_lesson_id: string }; Returns: Json }
+      save_lesson_plan: { Args: { p_lesson_id: string; p_items: Json }; Returns: undefined }
+      add_lesson_plan_file: { Args: { p_lesson_id: string; p_name: string; p_storage_path: string; p_size_bytes: number }; Returns: undefined }
+      remove_lesson_plan_file: { Args: { p_file_id: string }; Returns: undefined }
+      get_session_plan: { Args: { p_offering_id: string; p_lesson_id: string }; Returns: Json }
+      set_plan_item_done: { Args: { p_offering_id: string; p_item_id: string; p_done: boolean }; Returns: undefined }
+      list_offering_plan_progress: { Args: { p_offering_id: string }; Returns: Json }
       get_lesson_resources: { Args: { p_lesson_id: string }; Returns: Json }
       list_tenant_instructors: { Args: { p_tenant_id: string }; Returns: Json }
       list_offering_assignments: { Args: { p_tenant_id: string }; Returns: Json }

@@ -1,0 +1,39 @@
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Button } from '@/components/ui'
+import { useLessonPlan, useSavePlan, usePlanFiles, openPlanFile, useSessionPlan, useMarkPlan } from './planning-api'
+import { itemSchema, kinds, parseActivities, planMinutes, planProgress, type PlanFile, type PlanItem } from './planning-utils'
+
+const field = 'w-full min-w-0 rounded-control border border-border bg-surface p-2'
+function Files({ files, remove }: { files: PlanFile[]; remove?: (file: PlanFile) => void }) {
+  const { t } = useTranslation(); const [error, setError] = useState('')
+  return <div className="grid gap-2"><ul className="grid gap-1">{files.map((file) => <li key={file.id} className="flex flex-wrap items-center gap-2"><button type="button" className="underline" onClick={() => void openPlanFile(file.storage_path).catch(() => setError(t('planning.error')))}>{file.name}</button>{remove && <Button variant="secondary" onClick={() => remove(file)}>{t('planning.removeFile')}</Button>}</li>)}</ul>{error && <p role="alert">{error}</p>}</div>
+}
+export function PlanEditor({ lessonId, tenantId, editable }: { lessonId: string; tenantId: string; editable: boolean }) {
+  const { t } = useTranslation(); const query = useLessonPlan(lessonId); const save = useSavePlan(lessonId); const files = usePlanFiles(lessonId, tenantId)
+  const [draft, setDraft] = useState<PlanItem[] | null>(null); const [text, setText] = useState(''); const [message, setMessage] = useState('')
+  const items = draft ?? query.data?.items ?? []
+  function update(index: number, change: Partial<PlanItem>) { setDraft(items.map((item, i) => i === index ? { ...item, ...change } : item)) }
+  function move(index: number, direction: number) { const next = [...items]; const other = index + direction; const a = next[index]; const b = next[other]; if (!a || !b) return; next[index] = b; next[other] = a; setDraft(next) }
+  async function saveItems() { if (!items.every((item) => itemSchema.safeParse(item).success)) { setMessage(t('planning.invalid')); return }; try { await save.mutateAsync(items); setDraft(null); setMessage(t('planning.saved')) } catch { setMessage(t('planning.error')) } }
+  async function changeFile(input: { file?: File; remove?: PlanFile }) { try { await files.mutateAsync(input); setMessage('') } catch { setMessage(t('planning.fileError')) } }
+  return <section className="grid gap-3 rounded-control border border-border bg-surface-elevated p-3"><h4 className="font-semibold">{t('planning.title')}</h4>
+    {query.isPending ? <p>{t('planning.loading')}</p> : query.isError ? <p role="alert">{t('planning.error')}</p> : <>
+      {items.length === 0 && <p className="text-sm text-text-muted">{t('planning.empty')}</p>}
+      {items.map((item, index) => <div key={item.id} className="grid min-w-0 gap-2 rounded-control border border-border p-3">
+        {editable ? <><label>{t('planning.activity')}<input className={field} value={item.title} onChange={(e) => update(index, { title: e.target.value })} /></label><div className="grid gap-2 sm:grid-cols-2"><label>{t('planning.type')}<select className={field} value={item.kind} onChange={(e) => { const kind = kinds.find((k) => k === e.target.value); if (kind) update(index, { kind }) }}>{kinds.map((kind) => <option key={kind} value={kind}>{t(`planning.kinds.${kind}`)}</option>)}</select></label><label>{t('planning.minutes')}<input className={field} type="number" min="1" max="1440" value={item.minutes ?? ''} onChange={(e) => update(index, { minutes: e.target.value === '' ? null : Number(e.target.value) })} /></label></div><label>{t('planning.notes')}<textarea className={field} value={item.notes} onChange={(e) => update(index, { notes: e.target.value })} /></label><div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={index === 0} aria-label={t('planning.up')} onClick={() => move(index, -1)}>↑</Button><Button variant="secondary" disabled={index === items.length - 1} aria-label={t('planning.down')} onClick={() => move(index, 1)}>↓</Button><Button variant="secondary" onClick={() => setDraft(items.filter((_, i) => i !== index))}>{t('planning.delete')}</Button></div></> : <span>{item.title} {item.minutes ? `· ${item.minutes} min` : ''}</span>}
+      </div>)}
+      {editable && <><div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => setDraft([...items, { id: crypto.randomUUID(), title: '', minutes: null, kind: 'otro', notes: '' }])}>{t('planning.add')}</Button><Button disabled={save.isPending || draft === null} onClick={() => void saveItems()}>{t('planning.save')}</Button></div><label>{t('planning.importLabel')}<textarea className={field} value={text} onChange={(e) => setText(e.target.value)} placeholder={t('planning.importPlaceholder')} /></label><Button variant="secondary" className="w-fit" onClick={() => { const result = parseActivities(text); if (result.errors.length) { setMessage(t('planning.importErrors', { lines: result.errors.join(', ') })); return }; setDraft([...items, ...result.items]); setText(''); setMessage('') }}>{t('planning.import')}</Button></>}
+      <h5 className="font-semibold">{t('planning.files')}</h5><Files files={query.data.files} remove={editable ? (file) => void changeFile({ remove: file }) : undefined} />
+      {editable && <label>{t('planning.upload')}<input className={field} type="file" accept=".pdf,.doc,.docx,.ppt,.pptx" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; if (file) void changeFile({ file }) }} /></label>}
+    </>}{message && <p role="status">{message}</p>}</section>
+}
+export function SessionPlanView({ offeringId, lessonId, start, end }: { offeringId: string; lessonId: string; start: string | null; end: string | null }) {
+  const { t } = useTranslation(); const query = useSessionPlan(offeringId, lessonId); const mark = useMarkPlan(offeringId, lessonId)
+  if (query.isPending) return <p>{t('planning.loading')}</p>
+  if (query.isError || !query.data) return <p role="alert">{t('planning.error')}</p>
+  const plan = query.data; const done = new Set(plan.progress.filter((p) => p.done).map((p) => p.item_id)); const progress = planProgress(plan.items, done); const minutes = planMinutes(plan.items, start, end); const next = plan.items.find((item) => !done.has(item.id)); const completedMinutes = plan.items.filter((item) => done.has(item.id)).reduce((sum, item) => sum + (item.minutes ?? 0), 0)
+  return <div className="grid gap-3"><p>{t('planning.progress', { done: progress.done, total: progress.total })}</p><progress className="w-full" max={100} value={progress.percent} aria-label={t('planning.progressLabel')} /><p className="text-sm text-text-muted">{t('planning.completedMinutes', { minutes: completedMinutes })} ? {t('planning.duration', { total: minutes.total })}{minutes.session !== null ? ` / ${minutes.session} min` : ''}{minutes.session !== null && minutes.total > minutes.session ? ` · ${t('planning.overTime')}` : ''}</p>
+    {plan.items.length === 0 && <p>{t('planning.empty')}</p>}
+    <ul className="grid gap-2">{plan.items.map((item) => <li key={item.id} className="rounded-control border border-border bg-surface-elevated p-3"><label className="flex items-start gap-3"><input type="checkbox" className="mt-1 size-6 shrink-0" checked={done.has(item.id)} disabled={!plan.can_mark || mark.isPending} onChange={(e) => mark.mutate({ id: item.id, done: e.target.checked })} /><span className="min-w-0"><span className="font-semibold">{item.title}</span>{item.id === next?.id && <span> · {t('planning.next')}</span>}<span className="block text-sm text-text-muted">{t(`planning.kinds.${item.kind}`)}{item.minutes ? ` · ${item.minutes} min` : ''}</span>{item.notes && <span className="block whitespace-pre-wrap">{item.notes}</span>}</span></label></li>)}</ul>{mark.isError && <p role="alert">{t('planning.error')}</p>}<Files files={plan.files} /></div>
+}

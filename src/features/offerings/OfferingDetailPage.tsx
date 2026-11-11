@@ -1,3 +1,4 @@
+import { PlanningTab } from '@/features/planning/PlanningTab'
 import { useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -26,7 +27,7 @@ import { EnrollForm, ImportPanel } from '@/features/imports'
 import { shownEmail } from '@/lib/placeholder-email'
 
 type EnrollmentStatus = Database['public']['Enums']['enrollment_status']
-type Tab = 'summary' | 'students' | 'content' | 'schedule' | 'attendance' | 'grading' | 'certificates'
+type Tab = 'planning' | 'summary' | 'students' | 'content' | 'schedule' | 'attendance' | 'grading' | 'certificates'
 
 const nextStatus: Record<
   Database['public']['Enums']['offering_status'],
@@ -204,11 +205,11 @@ export function OfferingDetailPage() {
       <h1 className="font-heading text-2xl font-bold">{offering.title}</h1>
       <div role="tablist" aria-label={t('teacherOfferings.detailTabs')}
         className="flex flex-wrap gap-2">
-        {(['summary', 'students', 'content', 'schedule', 'attendance', 'grading', 'certificates'] as const).map((item) => (
+        {(['summary', 'students', 'content', 'planning', 'schedule', 'attendance', 'grading', 'certificates'] as const).map((item) => (
           <Button key={item} role="tab" aria-selected={tab === item}
             variant={tab === item ? 'primary' : 'secondary'}
             onClick={() => setTab(item)}>
-            {t(`teacherOfferings.tabs.${item}`)}
+            {item === 'planning' ? t('planning.tab') : t(`teacherOfferings.tabs.${item}`)}
           </Button>
         ))}
       </div>
@@ -378,6 +379,7 @@ export function OfferingDetailPage() {
             )}
           </div>
         )}
+        {tab === 'planning' && offeringId && <PlanningTab offeringId={offeringId} />}
         {tab === 'schedule' && offeringId && <ScheduleTab offeringId={offeringId} />}
         {tab === 'attendance' && offeringId && <AttendanceTab offeringId={offeringId} />}
         {tab === 'grading' && offeringId && <GradingTab offeringId={offeringId} />}
