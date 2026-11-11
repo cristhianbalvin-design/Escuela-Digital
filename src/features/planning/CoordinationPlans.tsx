@@ -1,4 +1,4 @@
-﻿import { Link, useLocation, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useTenantAccess } from '@/features/tenants'
 import { useOfferings } from '@/features/offerings/api'
