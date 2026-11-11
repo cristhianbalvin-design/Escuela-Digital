@@ -10,7 +10,7 @@ import { groupLiveActivities, runsForPlanItem } from './live-groups'
 import { CompareResults, QuizDistribution, RankingList, useRoundCountdown } from './LiveSpecial'
 import {
   useCloseLiveRun, useCreateLiveSession, useEndLiveSession, useLaunchLiveRun,
-  useLiveActivities, useLiveAi, useOfferingLiveSession, useMergeLiveTerm, useModerateLiveResponse, useSetLiveRunVisibility, useSetLiveRunPaused, useSetLiveRunReveal, useSetLiveRunRanking,
+  useLiveActivities, useLiveAi, useOfferingLiveSession, useMergeLiveTerm, useModerateLiveResponse, useSetLiveRunVisibility, useSetLiveRunPaused, useResetLiveRun, useResetLiveSessionResults, useSetLiveRunReveal, useSetLiveRunRanking,
 } from './live-teacher-api'
 
 type State = LiveRpcOutput<'get_live_control_state'>
@@ -76,6 +76,8 @@ export function LiveControlPanel({ offeringId, lessonId, launchPlanItemId }: {
   const close = useCloseLiveRun()
   const visibility = useSetLiveRunVisibility()
   const pause = useSetLiveRunPaused()
+  const resetRun = useResetLiveRun()
+  const resetAll = useResetLiveSessionResults()
   const reveal = useSetLiveRunReveal()
   const rankingMutation = useSetLiveRunRanking()
   const moderate = useModerateLiveResponse()
@@ -167,6 +169,7 @@ export function LiveControlPanel({ offeringId, lessonId, launchPlanItemId }: {
     return <div className="grid gap-3"><RunView run={run} participantCount={state?.participant_count ?? 0} />
       <div className="flex flex-wrap gap-2">
         {run.status === 'open' && <Button disabled={close.isPending} onClick={() => void act(() => close.mutateAsync({ p_run_id: run.id }))}>{t('live.closeRound')}</Button>}
+        <Button variant="secondary" disabled={resetRun.isPending} onClick={() => { if (window.confirm(t('live.confirmResetRun'))) void act(() => resetRun.mutateAsync({ p_run_id: run.id })) }}>{t('live.resetRun')}</Button>
         {run.status === 'open' && <Button variant="secondary" disabled={pause.isPending} onClick={() => void act(() => pause.mutateAsync({ p_run_id: run.id, p_paused: !run.paused }))}>{t(run.paused ? 'live.resumeRound' : 'live.pauseRound')}</Button>}
         <Button variant="secondary" disabled={visibility.isPending} onClick={() => void act(() => visibility.mutateAsync({ p_run_id: run.id, p_show_results: !run.show_results }))}>{t(run.show_results ? 'live.hideResults' : 'live.showResults')}</Button>
         {(run.type === 'quiz' || run.type === 'compare') && <Button variant="secondary" disabled={reveal.isPending} onClick={() => void act(() => reveal.mutateAsync({ p_run_id: run.id, p_reveal: !run.reveal }))}>{t(run.reveal ? 'live.hideReveal' : run.type === 'quiz' ? 'live.revealCorrect' : 'live.revealModels')}</Button>}
@@ -193,6 +196,7 @@ export function LiveControlPanel({ offeringId, lessonId, launchPlanItemId }: {
       <p className="break-all"><a className="text-brand underline" href={link} target="_blank" rel="noopener noreferrer">{link}</a></p>
       <div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => void navigator.clipboard.writeText(link).then(() => setMessage(t('live.linkCopied'))).catch(() => setMessage(t('live.copyError')))}>{t('live.copyLink')}</Button><Button variant="secondary" onClick={() => window.open(`/clase/${session.code}/proyector${window.location.search}`, '_blank', 'noopener,noreferrer')}>{t('live.openProjector')}</Button></div>
       <p aria-live="polite">{t('live.connected', { count: state?.participant_count ?? 0 })}</p>
+      {active && session && <Button variant="secondary" className="w-fit" disabled={resetAll.isPending} onClick={() => { if (window.confirm(t('live.confirmResetAll'))) void act(() => resetAll.mutateAsync({ p_session_id: session.id })) }}>{t('live.resetAll')}</Button>}
       {active && <Button variant="destructive" className="w-fit" disabled={end.isPending} onClick={() => void finish()}>{t('live.endClass')}</Button>}
     </>}
     {(relevant || !session) && <div className="grid gap-4 border-t border-border pt-4"><h5 className="font-semibold">{t('live.itemActivities')}</h5>

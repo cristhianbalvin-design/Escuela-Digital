@@ -1833,6 +1833,8 @@ export type Database = {
       moderate_live_response: { Args: { p_response_id: string; p_hidden: boolean; p_pinned: boolean }; Returns: Json }
       merge_live_term: { Args: { p_run_id: string; p_term: string; p_merged_into: string | null; p_hidden: boolean }; Returns: Json }
       end_live_session: { Args: { p_session_id: string }; Returns: Json }
+      reset_live_run: { Args: { p_run_id: string }; Returns: Json }
+      reset_live_session_results: { Args: { p_session_id: string }; Returns: Json }
       join_live_session: { Args: { p_code: string; p_name: string | null; p_company: string | null }; Returns: Json }
       get_live_state: { Args: { p_code: string; p_token: string }; Returns: Json }
       submit_live_response: { Args: { p_code: string; p_token: string; p_run_id: string; p_answer: Json }; Returns: Json }

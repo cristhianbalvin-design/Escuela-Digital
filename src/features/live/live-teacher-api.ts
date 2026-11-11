@@ -162,3 +162,5 @@ export const useSetLiveRunRanking = () => useControlMutation('set_live_run_ranki
 export const useModerateLiveResponse = () => useControlMutation('moderate_live_response')
 export const useMergeLiveTerm = () => useControlMutation('merge_live_term')
 export const useEndLiveSession = () => useControlMutation('end_live_session')
+export const useResetLiveRun = () => useControlMutation('reset_live_run')
+export const useResetLiveSessionResults = () => useControlMutation('reset_live_session_results')

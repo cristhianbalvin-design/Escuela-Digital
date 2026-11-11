@@ -80,6 +80,8 @@ export const liveRpcInputSchemas = {
   moderate_live_response: z.object({ p_response_id: uuid, p_hidden: z.boolean(), p_pinned: z.boolean() }).strict(),
   merge_live_term: z.object({ p_run_id: uuid, p_term: z.string().min(1).max(30), p_merged_into: z.string().min(1).max(30).nullable(), p_hidden: z.boolean() }).strict(),
   end_live_session: sessionId,
+  reset_live_run: runId,
+  reset_live_session_results: sessionId,
   join_live_session: z.object({ p_code: code, p_name: z.string().max(200).nullable(), p_company: z.string().max(200).nullable() }).strict(),
   get_live_state: z.object({ p_code: code, p_token: token }).strict(),
   submit_live_response: z.object({
@@ -180,6 +182,8 @@ export const liveRpcOutputSchemas = {
   moderate_live_response: controlStateOutput,
   merge_live_term: controlStateOutput,
   end_live_session: controlStateOutput,
+  reset_live_run: controlStateOutput,
+  reset_live_session_results: controlStateOutput,
   join_live_session: z.object({ token, state: participantStateOutput }).strict(),
   get_live_state: participantStateOutput,
   submit_live_response: participantStateOutput,
