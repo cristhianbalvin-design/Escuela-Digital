@@ -1,5 +1,5 @@
 import { CoordinationPlanDetail, CoordinationPlans } from '@/features/planning/CoordinationPlans'
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import {
   BrowserRouter,
   Navigate,
@@ -59,6 +59,9 @@ import { RoleGuard } from './RoleGuard'
 import { RoleLayout } from './RoleLayout'
 import { rolePath, useRole, type Role } from './role'
 import { TenantContext } from './TenantContext'
+
+const LiveJoinPage = lazy(() => import('@/features/live/LiveJoinPage').then((module) => ({ default: module.LiveJoinPage })))
+const LiveProjectorPage = lazy(() => import('@/features/live/LiveProjectorPage').then((module) => ({ default: module.LiveProjectorPage })))
 
 const brandingSource = supabase
   ? new SupabaseBrandingSource(supabase)
@@ -393,6 +396,9 @@ export function App() {
           <AuthProvider>
             <Routes>
               <Route path="/invitacion/:token" element={<InvitationPage />} />
+              <Route path="/clase" element={<Suspense fallback={<main role="status" className="p-8">Cargando…</main>}><LiveJoinPage /></Suspense>} />
+              <Route path="/clase/:code" element={<Suspense fallback={<main role="status" className="p-8">Cargando…</main>}><LiveJoinPage /></Suspense>} />
+              <Route path="/clase/:code/proyector" element={<Suspense fallback={<main role="status" className="p-8">Cargando…</main>}><LiveProjectorPage /></Suspense>} />
               <Route path="/*" element={<TenantRoutes />} />
             </Routes>
           </AuthProvider>
