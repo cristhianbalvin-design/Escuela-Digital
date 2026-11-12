@@ -114,6 +114,7 @@ export function OfferingDetailPage() {
   const tenantId = useTenantAccess().active?.tenant_id
   const [tab, setTab] = useState<Tab>('summary')
   const [notice, setNotice] = useState('')
+  const [sendingAccess, setSendingAccess] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const query = useOffering(tenantId, offeringId)
   const roster = useOfferingRoster(offeringId, tab === 'students')
@@ -146,6 +147,26 @@ export function OfferingDetailPage() {
       return t('teacherOfferings.enrollInvalid')
     }
     return readableError(error)
+  }
+
+  // Envía el correo para crear contraseña; el alumno entra luego con su correo.
+  async function sendAccess(emails: string[]) {
+    const client = supabase
+    const targets = [...new Set(emails.map((email) => shownEmail(email)).filter(Boolean))]
+    if (!client || targets.length === 0 || sendingAccess) return
+    if (targets.length > 1 && !window.confirm(t('teacherOfferings.sendAccessConfirm', { count: targets.length }))) return
+    setSendingAccess(true); setNotice('')
+    let sent = 0
+    for (const email of targets) {
+      const { error } = await client.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/nueva-clave${window.location.search}`,
+      })
+      if (!error) sent += 1
+    }
+    setSendingAccess(false)
+    setNotice(sent === targets.length
+      ? t('teacherOfferings.sendAccessDone', { count: sent })
+      : t('teacherOfferings.sendAccessPartial', { sent, total: targets.length }))
   }
 
   async function run(action: Parameters<typeof mutation.mutateAsync>[0]) {
@@ -314,6 +335,17 @@ export function OfferingDetailPage() {
               <Input label={t('teacherOfferings.rosterSearch')} value={rosterFilter}
                 onChange={(event) => setRosterFilter(event.target.value)} />
             </div>
+            {canEnroll && roster.data && roster.data.some((student) => shownEmail(student.email)) && (
+              <div className="grid gap-1">
+                <Button variant="secondary" className="w-fit" disabled={sendingAccess}
+                  onClick={() => void sendAccess(roster.data
+                    .filter((student) => student.status === 'active' || student.status === 'pending')
+                    .map((student) => student.email))}>
+                  {sendingAccess ? t('teacherOfferings.sendingAccess') : t('teacherOfferings.sendAccessAll')}
+                </Button>
+                <p className="text-sm text-text-muted">{t('teacherOfferings.sendAccessHint')}</p>
+              </div>
+            )}
             {roster.isPending ? <Skeleton className="h-48" /> :
               roster.isError ? (
                 <Card>
@@ -362,6 +394,12 @@ export function OfferingDetailPage() {
                         <Button variant="secondary" onClick={() => setEditingId(student.enrollment_id)}>
                           {t('teacherOfferings.editStudent')}
                         </Button>
+                        {canEnroll && shownEmail(student.email) && (
+                          <Button variant="secondary" disabled={sendingAccess}
+                            onClick={() => void sendAccess([student.email])}>
+                            {t('teacherOfferings.sendAccess')}
+                          </Button>
+                        )}
                         {enrollmentTransitions[student.status].map((status) => (
                           <Button key={status} variant="secondary" disabled={mutation.isPending}
                             onClick={() => void run({

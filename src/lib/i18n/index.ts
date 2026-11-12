@@ -837,7 +837,7 @@ export const resources = {
         studentsViewEnroll: 'Matricular',
         rosterSearch: 'Buscar estudiante',
         rosterNoMatches: 'Ningún estudiante coincide con la búsqueda.',
-        editStudent: 'Editar',
+        editStudent: 'Editar', sendAccess: 'Enviar acceso', sendAccessAll: 'Enviar acceso a todos', sendingAccess: 'Enviando…', sendAccessHint: 'Cada estudiante recibe un correo para crear su contraseña y entrar con su correo.', sendAccessConfirm: '¿Enviar el correo de acceso a {{count}} estudiantes?', sendAccessDone_one: 'Correo de acceso enviado.', sendAccessDone_other: 'Correo de acceso enviado a {{count}} estudiantes.', sendAccessPartial: 'Se enviaron {{sent}} de {{total}} correos. Espera unos minutos y reintenta con los que faltan.',
         studentName: 'Nombre completo',
         studentNameRequired: 'Escribe el nombre del estudiante.',
         studentPhone: 'Celular',
