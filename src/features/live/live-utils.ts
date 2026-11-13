@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const liveTypes = ['poll_single', 'poll_multi', 'vote', 'wordcloud', 'open', 'scale', 'quiz', 'compare'] as const
+export const liveTypes = ['poll_single', 'poll_multi', 'vote', 'wordcloud', 'open', 'scale', 'quiz', 'compare', 'opportunity'] as const
 export type LiveType = typeof liveTypes[number]
 
 const help = z.string().trim().min(1).max(200).optional()
@@ -25,7 +25,7 @@ const quizConfig = z.object({
   options: z.array(z.object({ id: z.string().trim().min(1).max(100), label: z.string().trim().min(1).max(200) }).strict()).min(2).max(6)
     .refine((items) => new Set(items.map((item) => item.id)).size === items.length),
   correct: z.string(), explanation: z.string().max(400).optional(),
-  seconds: z.number().int().min(5).max(120), concept: z.string().max(80).optional(), help, context,
+  seconds: z.number().int().min(5).max(120), concept: z.string().max(80).optional(), formative: z.boolean().optional(), help, context,
 }).strict().refine((config) => config.options.some((option) => option.id === config.correct))
 const compareConfig = z.object({
   description: z.string().max(2000).optional(),
@@ -37,6 +37,25 @@ const compareConfig = z.object({
   ask_comment: z.boolean(), comment_max: z.number().int().min(0).max(200), help, context,
 }).strict()
 
+const choiceList = z.array(z.string().trim().min(1).max(80)).min(2).max(20).refine((items) => new Set(items).size === items.length)
+const opportunityConfig = z.object({ areas: choiceList, problems: choiceList, solutions: choiceList, help, context }).strict()
+export const opportunityAnswerSchema = z.object({
+  area: z.string().max(80), process: z.string().trim().min(1).max(120), task: z.string().trim().min(1).max(250),
+  problems: z.array(z.string().max(80)).min(1).max(20), opportunity: z.string().trim().min(1).max(400),
+  solution: z.string().max(80), impact: z.number().int().min(1).max(5), ease: z.number().int().min(1).max(5),
+}).strict()
+export type OpportunityAnswer = z.infer<typeof opportunityAnswerSchema>
+export type OpportunityQuadrant = 'quick_win' | 'strategic' | 'minor' | 'low'
+/** Prioridad = impacto × facilidad; "alto" es 4 o 5. */
+export function opportunityStats(answer: Pick<OpportunityAnswer, 'impact' | 'ease'>): { priority: number; quadrant: OpportunityQuadrant } {
+  const high = (value: number) => value >= 4
+  return { priority: answer.impact * answer.ease,
+    quadrant: high(answer.impact) ? (high(answer.ease) ? 'quick_win' : 'strategic') : (high(answer.ease) ? 'minor' : 'low') }
+}
+export function isOpportunityAnswer(value: unknown): value is OpportunityAnswer {
+  return opportunityAnswerSchema.safeParse(value).success
+}
+
 export const liveActivitySchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('poll_single'), config: choiceConfig }).strict(),
   z.object({ type: z.literal('vote'), config: choiceConfig }).strict(),
@@ -46,6 +65,7 @@ export const liveActivitySchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('scale'), config: scaleConfig }).strict(),
   z.object({ type: z.literal('quiz'), config: quizConfig }).strict(),
   z.object({ type: z.literal('compare'), config: compareConfig }).strict(),
+  z.object({ type: z.literal('opportunity'), config: opportunityConfig }).strict(),
 ])
 export type LiveActivity = z.output<typeof liveActivitySchema>
 
@@ -67,6 +87,11 @@ export function answerSchema(activity: LiveActivity) {
       return z.number().int().min(activity.config.scale_min).max(activity.config.scale_max)
     case 'quiz':
       return z.string().refine((id) => activity.config.options.some((option) => option.id === id))
+    case 'opportunity': {
+      const config = activity.config
+      return opportunityAnswerSchema.refine((answer) => config.areas.includes(answer.area) && config.solutions.includes(answer.solution)
+        && answer.problems.every((problem) => config.problems.includes(problem)))
+    }
     case 'compare': {
       const config = activity.config
       return z.object({

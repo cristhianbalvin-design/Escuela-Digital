@@ -133,8 +133,16 @@ export function useOfferingLiveSession(offeringId: string) {
   return query
 }
 
+export function useLiveSessions(offeringId: string, lessonId: string) {
+  return useQuery({
+    queryKey: ['live', 'sessions', offeringId, lessonId], enabled: !!offeringId && !!lessonId && !!supabase,
+    queryFn: () => liveRpc('list_live_sessions', { p_offering_id: offeringId, p_lesson_id: lessonId }),
+    retry: false,
+  })
+}
+
 type ControlMutation = Exclude<LiveRpcName,
-  'get_live_activities' | 'save_live_activities' | 'get_live_control_state' | 'get_offering_live_session' |
+  'get_live_activities' | 'save_live_activities' | 'get_live_control_state' | 'get_offering_live_session' | 'list_live_sessions' |
   'join_live_session' | 'get_live_state' | 'submit_live_response' | 'get_projector_state'>
 
 function useControlMutation<K extends ControlMutation>(name: K) {

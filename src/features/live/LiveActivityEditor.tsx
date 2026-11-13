@@ -7,10 +7,23 @@ import { liveActivitySchema, liveTypes, type LiveType } from './live-utils'
 import { useLiveActivities, useSaveLiveActivities } from './live-teacher-api'
 import { defaultSpecialConfig, LiveSpecialEditor } from './LiveSpecialEditor'
 import { groupLiveActivities } from './live-groups'
+import { ActivityPreview } from './ActivityPreview'
 
 type Item = LiveRpcInput<'save_live_activities'>['p_items'][number]
 const field = 'w-full min-w-0 rounded-control border border-border bg-surface p-2'
+const oppKeys = ['areas', 'problems', 'solutions'] as const
+function cleanItem(item: Item): Item {
+  if (item.type !== 'opportunity') return item
+  const config = { ...item.config }
+  for (const key of oppKeys) config[key] = [...new Set((Array.isArray(config[key]) ? config[key] as unknown[] : []).map((value) => String(value).trim()).filter(Boolean))]
+  return { ...item, config }
+}
 function defaultConfig(type: LiveType): Record<string, unknown> {
+  if (type === 'opportunity') return {
+    areas: ['Gerencia', 'Finanzas', 'Comercial', 'Marketing', 'Operaciones', 'RR.HH.', 'Administración', 'Atención al cliente', 'Logística', 'Tecnología', 'Otro'],
+    problems: ['Consume demasiado tiempo', 'Genera errores', 'Información dispersa', 'Trabajo repetitivo', 'Decisiones lentas', 'Alto volumen de información', 'Difícil análisis', 'Dependencia de una persona', 'Falta de estandarización', 'Otro'],
+    solutions: ['Asistente', 'Coworker', 'Agente', 'Constructor', 'Automatización tradicional', 'No estoy seguro'],
+  }
   if (type === 'quiz' || type === 'compare') return defaultSpecialConfig(type)
   if (type === 'poll_single' || type === 'poll_multi' || type === 'vote')
     return { options: [{ id: crypto.randomUUID(), label: '' }, { id: crypto.randomUUID(), label: '' }] }
@@ -19,14 +32,20 @@ function defaultConfig(type: LiveType): Record<string, unknown> {
   return {}
 }
 
-export function LiveActivityEditor({ lessonId, editable, planItemId }: { lessonId: string; editable: boolean; planItemId?: string | null }) {
+type Only = { id: string; create?: { type: LiveType; planItemId: string | null; config?: Record<string, unknown> } }
+export function LiveActivityEditor({ lessonId, editable, planItemId, only, onSaved }: {
+  lessonId: string; editable: boolean; planItemId?: string | null; only?: Only; onSaved?: () => void
+}) {
   const { t } = useTranslation()
   const query = useLiveActivities(lessonId)
   const plan = useLessonPlan(lessonId)
   const save = useSaveLiveActivities(lessonId)
   const [draft, setDraft] = useState<Item[] | null>(null)
   const [message, setMessage] = useState('')
-  const items = draft ?? query.data?.map((item): Item => ({ id: item.id, title: item.title, type: item.type, config: item.config, plan_item_id: item.plan_item_id })) ?? []
+  const [fresh] = useState<Item | null>(() => only?.create ? { id: only.id, title: '', type: only.create.type, config: only.create.config ?? defaultConfig(only.create.type), plan_item_id: only.create.planItemId } : null)
+  const loaded = query.data?.map((item): Item => ({ id: item.id, title: item.title, type: item.type, config: item.config, plan_item_id: item.plan_item_id })) ?? []
+  const creating = !!fresh && !!query.data && !loaded.some((item) => item.id === fresh.id)
+  const items = draft ?? (creating && fresh ? [...loaded, fresh] : loaded)
   const planItems = plan.data?.items ?? []
   function update(index: number, item: Item) { setDraft(items.map((current, i) => i === index ? item : current)) }
   function move(index: number, offset: number) {
@@ -38,18 +57,20 @@ export function LiveActivityEditor({ lessonId, editable, planItemId }: { lessonI
     setDraft(copy)
   }
   async function submit() {
-    const parsed = liveRpcInputSchemas.save_live_activities.safeParse({ p_lesson_id: lessonId, p_items: items })
-    if (!parsed.success || !items.every((item) => liveActivitySchema.safeParse({ type: item.type, config: item.config }).success)) {
+    const clean = items.map(cleanItem)
+    const parsed = liveRpcInputSchemas.save_live_activities.safeParse({ p_lesson_id: lessonId, p_items: clean })
+    if (!parsed.success || !clean.every((item) => liveActivitySchema.safeParse({ type: item.type, config: item.config }).success)) {
       setMessage(t('live.editorInvalid')); return
     }
-    try { await save.mutateAsync(items); setDraft(null); setMessage(t('live.editorSaved')) }
+    try { await save.mutateAsync(clean); setDraft(null); setMessage(t('live.editorSaved')); onSaved?.() }
     catch (error) { setMessage(error instanceof Error ? error.message : t('live.editorError')) }
   }
-  return <section className="grid gap-3 rounded-control border border-border bg-surface-elevated p-3">
-    <h4 className="font-semibold">{t('live.editorTitle')}</h4>
+  const previewItem = only ? items.find((item) => item.id === only.id) : undefined
+  return <section className={`grid gap-3 rounded-control border border-border bg-surface-elevated p-3 ${only ? 'lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start' : ''}`}>
+    {!only && <h4 className="font-semibold">{t('live.editorTitle')}</h4>}
     {query.isPending ? <p>{t('live.loading')}</p> : query.isError ? <p role="alert">{t('live.editorError')}</p> : <>
-      {(planItemId === undefined ? items.length === 0 : !items.some((item) => (item.plan_item_id ?? null) === planItemId)) && <p className="text-sm text-text-muted">{t('live.editorEmpty')}</p>}
-      {groupLiveActivities(items.map((item, index) => ({ ...item, plan_item_id: item.plan_item_id ?? null, index, position: index })), planItems).filter((group) => planItemId === undefined || group.id === planItemId).map((group) => <section key={group.id ?? 'unlinked'} className="grid gap-2"><h5 className="font-semibold">{group.title ?? t('live.unlinked')}</h5>{group.activities.map((entry) => {
+      {!only && (planItemId === undefined ? items.length === 0 : !items.some((item) => (item.plan_item_id ?? null) === planItemId)) && <p className="text-sm text-text-muted">{t('live.editorEmpty')}</p>}
+      {groupLiveActivities(items.map((item, index) => ({ ...item, plan_item_id: item.plan_item_id ?? null, index, position: index })), planItems).filter((group) => (planItemId === undefined || group.id === planItemId) && (!only || group.activities.some((entry) => items[entry.index]?.id === only.id))).map((group) => <section key={group.id ?? 'unlinked'} className="grid gap-2">{!only && <h5 className="font-semibold">{group.title ?? t('live.unlinked')}</h5>}{group.activities.filter((entry) => !only || items[entry.index]?.id === only.id).map((entry) => {
         const index = entry.index
         const item = items[index]!
         const options = (item.type === 'poll_single' || item.type === 'poll_multi' || item.type === 'vote') && Array.isArray(item.config.options)
@@ -73,15 +94,17 @@ export function LiveActivityEditor({ lessonId, editable, planItemId }: { lessonI
           {item.type === 'poll_multi' && <label>{t('live.maxChoicesEditor')}<input className={field} type="number" min={1} max={options?.length ?? 20} value={typeof item.config.max_choices === 'number' ? item.config.max_choices : ''} disabled={!editable} onChange={(e) => { const next = { ...item.config }; if (e.target.value) next.max_choices = Number(e.target.value); else delete next.max_choices; change(next) }} /></label>}
           {item.type === 'wordcloud' && <label>{t('live.maxAnswersEditor')}<input className={field} type="number" min={1} max={20} value={typeof item.config.max_answers === 'number' ? item.config.max_answers : 3} disabled={!editable} onChange={(e) => change({ ...item.config, max_answers: Number(e.target.value) })} /></label>}
           {item.type === 'scale' && <div className="grid gap-2 sm:grid-cols-2"><label>{t('live.scaleMin')}<input className={field} type="number" min={-100} max={100} value={typeof item.config.scale_min === 'number' ? item.config.scale_min : 1} disabled={!editable} onChange={(e) => change({ ...item.config, scale_min: Number(e.target.value) })} /></label><label>{t('live.scaleMax')}<input className={field} type="number" min={-100} max={100} value={typeof item.config.scale_max === 'number' ? item.config.scale_max : 5} disabled={!editable} onChange={(e) => change({ ...item.config, scale_max: Number(e.target.value) })} /></label>{['scale_min', 'scale_max'].map((bound) => { const value = item.config[bound]; const labels = item.config.labels && typeof item.config.labels === 'object' ? item.config.labels as Record<string, string> : {}; return <label key={bound}>{t(bound === 'scale_min' ? 'live.scaleMinLabel' : 'live.scaleMaxLabel')}<input className={field} maxLength={200} value={typeof value === 'number' ? labels[String(value)] ?? '' : ''} disabled={!editable} onChange={(e) => { if (typeof value === 'number') change({ ...item.config, labels: { ...labels, [String(value)]: e.target.value } }) }} /></label> })}</div>}
+          {item.type === 'opportunity' && oppKeys.map((key) => <label key={key}>{t(`live.opp.editor.${key}`)}<textarea className={`${field} min-h-32`} disabled={!editable} value={(Array.isArray(item.config[key]) ? item.config[key] as string[] : []).join('\n')} onChange={(e) => change({ ...item.config, [key]: e.target.value.split('\n') })} /></label>)}
           {(item.type === 'quiz' || item.type === 'compare') && <LiveSpecialEditor type={item.type} config={item.config} change={change} editable={editable} />}
-          {editable && <div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={group.activities[0]?.index === index} aria-label={t('live.moveUp')} onClick={() => move(index, -1)}>↑</Button><Button variant="secondary" disabled={group.activities.at(-1)?.index === index} aria-label={t('live.moveDown')} onClick={() => move(index, 1)}>↓</Button><Button variant="secondary" onClick={() => setDraft([...items.slice(0, index + 1), { ...item, id: crypto.randomUUID(), title: `${item.title} (${t('live.copy')})` }, ...items.slice(index + 1)])}>{t('live.duplicateActivity')}</Button><Button variant="destructive" onClick={() => setDraft(items.filter((_, i) => i !== index))}>{t('live.deleteActivity')}</Button></div>}
+          {editable && !only && <div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={group.activities[0]?.index === index} aria-label={t('live.moveUp')} onClick={() => move(index, -1)}>↑</Button><Button variant="secondary" disabled={group.activities.at(-1)?.index === index} aria-label={t('live.moveDown')} onClick={() => move(index, 1)}>↓</Button><Button variant="secondary" onClick={() => setDraft([...items.slice(0, index + 1), { ...item, id: crypto.randomUUID(), title: `${item.title} (${t('live.copy')})` }, ...items.slice(index + 1)])}>{t('live.duplicateActivity')}</Button><Button variant="destructive" onClick={() => setDraft(items.filter((_, i) => i !== index))}>{t('live.deleteActivity')}</Button></div>}
         </div>
       })}</section>)}
-      {editable && <div className="grid gap-2"><p className="font-medium">{t('live.addActivity')}</p>
+      {editable && !only && <div className="grid gap-2"><p className="font-medium">{t('live.addActivity')}</p>
         <div className="flex flex-wrap gap-2">{liveTypes.map((type) => <Button key={type} variant="secondary" onClick={() => setDraft([...items, { id: crypto.randomUUID(), title: '', type, config: defaultConfig(type), plan_item_id: planItemId ?? null }])}>+ {t(`live.types.${type}`)}</Button>)}</div>
 </div>}
-      {editable && <div className="sticky bottom-0 z-10 -mx-3 -mb-3 flex flex-wrap items-center gap-3 border-t border-border bg-surface-elevated p-3">
-        <Button disabled={draft === null || save.isPending} onClick={() => void submit()}>{t('live.saveActivities')}</Button>
+      {previewItem && <ActivityPreview item={previewItem} />}
+      {editable && <div className={`sticky bottom-0 z-10 -mx-3 -mb-3 flex flex-wrap items-center gap-3 border-t border-border bg-surface-elevated p-3 ${only ? 'lg:col-span-2' : ''}`}>
+        <Button disabled={(draft === null && !creating) || save.isPending} onClick={() => void submit()}>{t(only ? 'live.saveAndBack' : 'live.saveActivities')}</Button>
         {draft !== null && <span className="text-sm text-text-muted">{t('live.unsaved')}</span>}
         {message && <span role="status" aria-live="polite" className="text-sm">{message}</span>}</div>}
     </>}

@@ -63,6 +63,9 @@ import { TenantContext } from './TenantContext'
 const LiveJoinPage = lazy(() => import('@/features/live/LiveJoinPage').then((module) => ({ default: module.LiveJoinPage })))
 const LiveControlPage = lazy(() => import('@/features/live/LiveControlPage').then((module) => ({ default: module.LiveControlPage })))
 const LiveEditorPage = lazy(() => import('@/features/live/LiveEditorPage').then((module) => ({ default: module.LiveEditorPage })))
+const SessionPreparePage = lazy(() => import('@/features/live/SessionPreparePage').then((module) => ({ default: module.SessionPreparePage })))
+const ActivityEditorPage = lazy(() => import('@/features/live/SessionPreparePage').then((module) => ({ default: module.ActivityEditorPage })))
+const SessionResultsPage = lazy(() => import('@/features/live/SessionResultsPage').then((module) => ({ default: module.SessionResultsPage })))
 const LiveProjectorPage = lazy(() => import('@/features/live/LiveProjectorPage').then((module) => ({ default: module.LiveProjectorPage })))
 
 const brandingSource = supabase
@@ -403,6 +406,9 @@ export function App() {
               <Route path="/clase/:code/proyector" element={<Suspense fallback={<main role="status" className="p-8">Cargando…</main>}><LiveProjectorPage /></Suspense>} />
               <Route path="/clase-control/:offeringId/:lessonId" element={<Suspense fallback={<main role="status" className="p-8">Cargando…</main>}><LiveControlPage /></Suspense>} />
               <Route path="/actividades/:lessonId" element={<Suspense fallback={<main role="status" className="p-8">Cargando…</main>}><LiveEditorPage /></Suspense>} />
+              <Route path="/sesion/:lessonId" element={<Suspense fallback={<main role="status" className="p-8">Cargando…</main>}><SessionPreparePage /></Suspense>} />
+              <Route path="/sesion/:lessonId/actividad/:activityId" element={<Suspense fallback={<main role="status" className="p-8">Cargando…</main>}><ActivityEditorPage /></Suspense>} />
+              <Route path="/sesion-resultados/:offeringId/:lessonId" element={<Suspense fallback={<main role="status" className="p-8">Cargando…</main>}><SessionResultsPage /></Suspense>} />
               <Route path="/*" element={<TenantRoutes />} />
             </Routes>
           </AuthProvider>

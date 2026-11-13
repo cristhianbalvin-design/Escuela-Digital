@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { isLiveCode } from './live-utils'
+import { isLiveCode, opportunityAnswerSchema } from './live-utils'
 
 // La validación que depende de la configuración de una ronda se repite en SQL.
 const uuid = z.uuid()
@@ -30,7 +30,7 @@ const scaleConfig = z.object({
 const emptyConfig = z.object({ help, indicator_label, context }).strict()
 const quizOption = option.omit({ score: true })
 const quizConfig = z.object({ options: z.array(quizOption).min(2).max(6).refine((items) => new Set(items.map((item) => item.id)).size === items.length),
-  correct: z.string(), explanation: z.string().max(400).optional(), seconds: z.number().int().min(5).max(120), concept: z.string().max(80).optional(), help, context }).strict()
+  correct: z.string(), explanation: z.string().max(400).optional(), seconds: z.number().int().min(5).max(120), concept: z.string().max(80).optional(), formative: z.boolean().optional(), help, context }).strict()
   .refine((value) => value.options.some((item) => item.id === value.correct))
 const compareOption = z.object({ id: z.string().trim().min(1).max(100), label: z.string().trim().min(1).max(200), content: z.string().max(20000), real_name: z.string().max(60) }).strict()
 const compareCriterion = z.object({ id: z.string().trim().min(1).max(100), label: z.string().trim().min(1).max(80), description: z.string().max(300) }).strict()
@@ -38,17 +38,19 @@ const compareConfig = z.object({ description: z.string().max(2000).optional(), o
   criteria: z.array(compareCriterion).min(1).max(10).refine((items) => new Set(items.map((item) => item.id)).size === items.length),
   scale_max: z.number().int().min(3).max(10).optional(), final_question: z.string().max(200), ask_comment: z.boolean(), comment_max: z.number().int().min(0).max(200), help, context }).strict()
 const publicQuizConfig = z.object({ options: z.array(quizOption).min(2).max(6),
-  seconds: z.number().int().min(5).max(120), concept: z.string().max(80).optional(), help, context }).strict()
+  seconds: z.number().int().min(5).max(120), concept: z.string().max(80).optional(), formative: z.boolean().optional(), help, context }).strict()
   .refine((value) => new Set(value.options.map((item) => item.id)).size === value.options.length)
 const publicCompareOption = z.object({ id: z.string().trim().min(1).max(100), label: z.string().trim().min(1).max(200), content: z.string().max(20000) }).strict()
 const publicCompareConfig = z.object({ description: z.string().max(2000).optional(), options: z.array(publicCompareOption).min(2).max(5),
   criteria: z.array(compareCriterion).min(1).max(10),
   scale_max: z.number().int().min(3).max(10).optional(), final_question: z.string().max(200), ask_comment: z.boolean(), comment_max: z.number().int().min(0).max(200), help, context }).strict()
   .refine((value) => new Set(value.options.map((item) => item.id)).size === value.options.length)
-const activityType = z.enum(['poll_single', 'poll_multi', 'vote', 'wordcloud', 'open', 'scale', 'quiz', 'compare'])
+const choiceList = z.array(z.string().trim().min(1).max(80)).min(2).max(20)
+const opportunityConfig = z.object({ areas: choiceList, problems: choiceList, solutions: choiceList, help, context }).strict()
+const activityType = z.enum(['poll_single', 'poll_multi', 'vote', 'wordcloud', 'open', 'scale', 'quiz', 'compare', 'opportunity'])
 const configForType = {
   poll_single: choiceConfig, poll_multi: multiConfig, vote: choiceConfig,
-  wordcloud: wordConfig, open: emptyConfig, scale: scaleConfig, quiz: quizConfig, compare: compareConfig,
+  wordcloud: wordConfig, open: emptyConfig, scale: scaleConfig, quiz: quizConfig, compare: compareConfig, opportunity: opportunityConfig,
 } as const
 const config = z.record(z.string(), z.unknown())
 const activityMatchesConfig = (value: { type: z.infer<typeof activityType>; config: Record<string, unknown> }) =>
@@ -80,6 +82,7 @@ export const liveRpcInputSchemas = {
   moderate_live_response: z.object({ p_response_id: uuid, p_hidden: z.boolean(), p_pinned: z.boolean() }).strict(),
   merge_live_term: z.object({ p_run_id: uuid, p_term: z.string().min(1).max(30), p_merged_into: z.string().min(1).max(30).nullable(), p_hidden: z.boolean() }).strict(),
   end_live_session: sessionId,
+  list_live_sessions: z.object({ p_offering_id: uuid, p_lesson_id: uuid }).strict(),
   reset_live_run: runId,
   reset_live_session_results: sessionId,
   join_live_session: z.object({ p_code: code, p_name: z.string().max(200).nullable(), p_company: z.string().max(200).nullable() }).strict(),
@@ -87,7 +90,7 @@ export const liveRpcInputSchemas = {
   submit_live_response: z.object({
     p_code: code, p_token: token, p_run_id: uuid,
     p_answer: z.union([z.string().max(280), z.array(z.string().max(100)).min(1).max(20), z.number().int(),
-      z.object({ ratings: z.record(z.string(), z.record(z.string(), z.number().int().min(1).max(10))), choice: z.string(), comment: z.string().max(200).optional() }).strict()]),
+      z.object({ ratings: z.record(z.string(), z.record(z.string(), z.number().int().min(1).max(10))), choice: z.string(), comment: z.string().max(200).optional() }).strict(), opportunityAnswerSchema]),
   }).strict(),
   get_projector_state: z.object({ p_code: code }).strict(),
 } as const
@@ -103,7 +106,7 @@ const activityOutput = z.object({
 }).strict().refine(activityMatchesConfig)
 const activitiesOutput = z.array(activityOutput)
 const responseOutput = z.object({
-  id: uuid, answer: z.union([z.string(), z.array(z.string()), z.number().int(), z.object({ ratings: z.record(z.string(), z.record(z.string(), z.number().int().min(1).max(10))), choice: z.string(), comment: z.string().max(200).optional() }).strict()]),
+  id: uuid, answer: z.union([z.string(), z.array(z.string()), z.number().int(), z.object({ ratings: z.record(z.string(), z.record(z.string(), z.number().int().min(1).max(10))), choice: z.string(), comment: z.string().max(200).optional() }).strict(), opportunityAnswerSchema]),
   hidden: z.boolean(), pinned: z.boolean(), participant_name: z.string().nullable(),
 }).strict()
 const resultsOutput = z.object({
@@ -182,6 +185,7 @@ export const liveRpcOutputSchemas = {
   moderate_live_response: controlStateOutput,
   merge_live_term: controlStateOutput,
   end_live_session: controlStateOutput,
+  list_live_sessions: z.array(z.object({ id: uuid, code, status: z.enum(['active', 'ended']), created_at: timestamp, ended_at: timestamp.nullable(), participant_count: count, run_count: count }).strict()),
   reset_live_run: controlStateOutput,
   reset_live_session_results: controlStateOutput,
   join_live_session: z.object({ token, state: participantStateOutput }).strict(),

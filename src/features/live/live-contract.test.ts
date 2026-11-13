@@ -103,7 +103,7 @@ describe('salidas JSON de las 18 RPC en vivo', () => {
     merge_live_term: controlState, end_live_session: controlState, reset_live_run: controlState, reset_live_session_results: controlState,
     join_live_session: { token, state: participantState },
     get_live_state: participantState, submit_live_response: participantState,
-    get_projector_state: projectorState,
+    get_projector_state: projectorState, list_live_sessions: [],
   }
 
   it.each(Object.keys(examples) as LiveRpcName[])('%s acepta su estructura', (name) => {

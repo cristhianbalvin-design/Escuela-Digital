@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { answerSchema, isLiveCode, liveActivitySchema } from './live-utils'
 import { liveRpc, useLiveState } from './live-api'
 import { LiveResults } from './LiveResults'
+import { OpportunityRound } from './LiveOpportunity'
 import { CompareRound, QuizRound } from './LiveSpecial'
 import { SafeMarkdown } from './SafeMarkdown'
 import type { LiveRpcOutput } from './live-contract'
@@ -202,8 +203,8 @@ export function LiveJoinPage() {
       </form></Card>}
     {(joining || state.isLoading) && !data && <Card role="status">{t('live.loading')}</Card>}
     {data?.session.status === 'ended' && <Card><h2 className="text-2xl font-bold">{t('live.ended')}</h2></Card>}
-    {data?.session.status === 'active' && (!run || (run.status === 'closed' && !run.show_results && !run.reveal && !run.show_ranking && !(run.type === 'compare' && data.my_response !== null))) && <Card role="status" aria-live="polite">{t('live.waiting')}</Card>}
-    {data?.session.status === 'active' && run && (run.status === 'open' || run.show_results || run.reveal || run.show_ranking || (run.type === 'compare' && data.my_response !== null)) && <Card className="space-y-6">
+    {data?.session.status === 'active' && (!run || (run.status === 'closed' && !run.show_results && !run.reveal && !run.show_ranking && !((run.type === 'compare' || run.type === 'opportunity') && data.my_response !== null))) && <Card role="status" aria-live="polite">{t('live.waiting')}</Card>}
+    {data?.session.status === 'active' && run && (run.status === 'open' || run.show_results || run.reveal || run.show_ranking || ((run.type === 'compare' || run.type === 'opportunity') && data.my_response !== null)) && <Card className="space-y-6">
       <div>{typeof run.config.context === 'string' && run.config.context && <div className="mb-4 rounded-control border border-border p-3"><SafeMarkdown source={run.config.context} /></div>}<p className="text-sm font-semibold uppercase text-text-muted">{t(`live.types.${run.type}`)}</p>
         <h2 className="mt-1 text-2xl font-bold">{run.title}</h2>
         {typeof run.config.help === 'string' && <p className="mt-2 text-text-muted">{run.config.help}</p>}</div>
@@ -211,7 +212,9 @@ export function LiveJoinPage() {
         onSaved={() => void queryClient.invalidateQueries({ queryKey: ['live', 'student', code, token] })} />}
       {token && run.type === 'compare' && <CompareRound key={run.id} run={run} code={code} token={token} mine={data.my_response}
         onSaved={() => void queryClient.invalidateQueries({ queryKey: ['live', 'student', code, token] })} />}
-      {token && run.status === 'open' && run.type !== 'quiz' && run.type !== 'compare' && <LiveAnswer key={run.id} run={run} code={code} token={token} mine={data.my_response as string | string[] | number | null}
+      {token && run.type === 'opportunity' && <OpportunityRound key={run.id} run={run} code={code} token={token} mine={data.my_response}
+        onSaved={() => void queryClient.invalidateQueries({ queryKey: ['live', 'student', code, token] })} />}
+      {token && run.status === 'open' && run.type !== 'quiz' && run.type !== 'compare' && run.type !== 'opportunity' && <LiveAnswer key={run.id} run={run} code={code} token={token} mine={data.my_response as string | string[] | number | null}
         onSaved={() => void queryClient.invalidateQueries({ queryKey: ['live', 'student', code, token] })} />}
       {run.show_results && run.type !== 'quiz' && run.type !== 'compare' && <LiveResults run={run} />}
     </Card>}

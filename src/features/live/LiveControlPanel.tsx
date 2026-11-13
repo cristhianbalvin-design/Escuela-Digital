@@ -19,14 +19,14 @@ type PublicRun = NonNullable<LiveRpcOutput<'get_projector_state'>['run']>
 type TermRow = Extract<Run['results']['rows'][number], { term: string }>
 const field = 'w-full min-w-0 rounded-control border border-border bg-surface p-2'
 
-function RunView({ run, participantCount }: { run: Run; participantCount: number }) {
+export function RunView({ run, participantCount, hideTitle = false }: { run: Run; participantCount: number; hideTitle?: boolean }) {
   const { t } = useTranslation()
   const count = run.results.responses.length
   const percent = participantCount ? Math.min(100, Math.round(count * 100 / participantCount)) : 0
   const displayRun: PublicRun = { ...run, show_results: true, results: { ...run.results,
     responses: run.results.responses.filter((response) => !response.hidden).map((response) => ({ ...response, hidden: false as const, participant_name: null })) } }
   return <div className="grid gap-3 rounded-control border border-border p-3">
-    <h5 className="font-semibold">{run.title}</h5>
+    {!hideTitle && <h5 className="font-semibold">{run.title}</h5>}
     {typeof run.config.help === 'string' && <p className="text-sm text-text-muted">{run.config.help}</p>}
     {run.status === 'open' && <><p aria-live="polite">{t('live.responseCount', { count, total: participantCount, percent })}</p>
       <progress className="w-full" max={100} value={percent} aria-label={t('live.responseProgress')} /></>}
@@ -55,8 +55,8 @@ function QuizSummary({ runs, ranking, participants }: { runs: Run[]; ranking: St
   </section>
 }
 
-export function LiveControlPanel({ offeringId, lessonId, launchPlanItemId }: {
-  offeringId: string; lessonId: string; launchPlanItemId?: string | null
+export function LiveControlPanel({ offeringId, lessonId, launchPlanItemId, embedded = false }: {
+  offeringId: string; lessonId: string; launchPlanItemId?: string | null; embedded?: boolean
 }) {
   const { t } = useTranslation()
   const [accessMode, setAccessMode] = useState<'enrolled' | 'guest' | 'both'>('both')
@@ -187,7 +187,7 @@ export function LiveControlPanel({ offeringId, lessonId, launchPlanItemId }: {
   }
 
   return <section className="grid gap-4 rounded-control border border-border bg-surface-elevated p-4" aria-label={t('live.classTitle')}>
-    {query.isPending ? <p role="status">{t('live.loading')}</p> : !session ? <>
+    {embedded ? null : query.isPending ? <p role="status">{t('live.loading')}</p> : !session ? <>
       <div className="grid gap-2 sm:grid-cols-3"><label>{t('live.accessMode')}<select className={field} value={accessMode} onChange={(e) => setAccessMode(e.target.value as typeof accessMode)}><option value="both">{t('live.accessBoth')}</option><option value="enrolled">{t('live.accessEnrolled')}</option><option value="guest">{t('live.accessGuest')}</option></select></label><label className="flex items-center gap-2"><input type="checkbox" checked={askName} onChange={(e) => setAskName(e.target.checked)} />{t('live.askName')}</label><label className="flex items-center gap-2"><input type="checkbox" checked={askCompany} onChange={(e) => setAskCompany(e.target.checked)} />{t('live.askCompany')}</label></div>
       <Button className="w-fit" disabled={create.isPending} onClick={() => void start()}>{t('live.startClass')}</Button>
     </> : <>
