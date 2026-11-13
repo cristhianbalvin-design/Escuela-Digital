@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { liveSearch } from './live-utils'
 import { useParams, useSearchParams } from 'react-router-dom'
@@ -29,6 +29,25 @@ function Countdown({ run }: { run: Run }) {
   const seconds = typeof run.config.seconds === 'number' ? run.config.seconds : 20
   const remaining = useRoundCountdown(run, seconds)
   return <div role="timer" className="flex size-20 shrink-0 items-center justify-center rounded-full border-[6px] border-brand text-3xl font-bold tabular-nums">{String(remaining).padStart(2, '0')}</div>
+}
+
+/** Miniatura fiel del proyector: se dibuja a 1280×720 y se escala al ancho disponible. */
+function ProjectorPreview({ title, src }: { title: string; src: string }) {
+  const box = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(0.2)
+  useEffect(() => {
+    const element = box.current
+    if (!element) return
+    const update = () => setScale(element.clientWidth / 1280)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+  return <div ref={box} className="relative aspect-video w-full overflow-hidden rounded-control border border-border bg-black">
+    <iframe title={title} src={src} tabIndex={-1} className="pointer-events-none absolute left-0 top-0 h-[720px] w-[1280px] origin-top-left border-0"
+      style={{ transform: `scale(${scale})` }} />
+  </div>
 }
 
 function Clock() {
@@ -200,7 +219,7 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
             <li key={chip.label} aria-current={chip.now ? 'step' : undefined} className={`rounded-full border px-2.5 py-1 ${chip.now ? 'border-brand bg-brand text-white' : chip.on ? 'border-brand text-brand' : 'border-border text-text-muted'}`}>{chip.label}</li>)}</ol>
         </div>
 
-        {active && live && <ScreenControl sessionId={live.id} code={live.code} presentation={deck.data ?? null}
+        {active && live && <ScreenControl sessionId={live.id} lessonId={lessonId} code={live.code} presentation={deck.data ?? null}
           latestRunOpenedAt={runs.reduce<string | null>((latest, run) => !latest || Date.parse(run.opened_at) > Date.parse(latest) ? run.opened_at : latest, null)} />}
         {!session && deck.data && <Button variant="secondary" className="min-h-14 w-fit text-base" disabled={busy}
           onClick={() => void act(async () => { const s = await ensureSession(); await liveRpc('set_live_screen', { p_session_id: s.id, p_mode: 'slides', p_slide: 1 }); void ping(s.code) })}>
@@ -262,7 +281,7 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
       <aside aria-label={t('live.cockpit.screens')} className="grid min-w-0 max-w-sm flex-[1_1_18rem] content-start gap-4 border-border p-4 lg:border-l">
         {relevant && <div className="grid gap-2">
           <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">{t('live.cockpit.projectorView')}</p>
-          <iframe title={t('live.cockpit.projectorView')} src={`/clase/${live!.code}/proyector${liveSearch()}`} className="aspect-video w-full rounded-control border border-border" />
+          <ProjectorPreview title={t('live.cockpit.projectorView')} src={`/clase/${live!.code}/proyector${liveSearch()}`} />
         </div>}
         {relevant && <div className="grid gap-3 rounded-control border border-border p-3">
           <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">{t('live.cockpit.join')}</p>

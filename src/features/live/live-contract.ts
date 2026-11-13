@@ -129,6 +129,8 @@ export const liveRpcInputSchemas = {
   save_lesson_presentation: z.object({ p_lesson_id: uuid, p_file_name: z.string().trim().min(1).max(200), p_folder: z.string().max(80),
     p_page_count: z.number().int().min(1).max(300), p_aspect: z.number().min(0.3).max(4) }).strict(),
   delete_lesson_presentation: lessonId,
+  get_slide_notes: lessonId,
+  save_slide_notes: z.object({ p_lesson_id: uuid, p_notes: z.array(z.object({ slide: z.number().int().min(1).max(300), notes: z.string().max(6000) }).strict()).max(300) }).strict(),
 } as const
 
 export type LiveRpcName = keyof typeof liveRpcInputSchemas
@@ -142,6 +144,7 @@ export const screenOutput = z.object({ mode: z.enum(['slides', 'activity', 'join
   updated_at: timestamp.nullable(), presentation: presentationOutput.nullable() }).strict()
 export type LiveScreen = z.output<typeof screenOutput>
 export type LessonPresentation = z.output<typeof presentationOutput>
+export const slideNotesOutput = z.array(z.object({ slide: z.number().int().min(1), notes: z.string() }).strict())
 const activityOutput = z.object({
   id: uuid, set_id: uuid.nullable(), plan_item_id: uuid.nullable(), title: z.string().min(1).max(200),
   type: activityType, config, position: count,
@@ -250,6 +253,8 @@ export const liveRpcOutputSchemas = {
   get_lesson_presentation: presentationOutput.nullable(),
   save_lesson_presentation: presentationOutput,
   delete_lesson_presentation: z.null(),
+  get_slide_notes: slideNotesOutput,
+  save_slide_notes: slideNotesOutput,
 } as const satisfies Record<LiveRpcName, z.ZodType>
 
 export type LiveRpcOutput<K extends LiveRpcName> = z.output<(typeof liveRpcOutputSchemas)[K]>

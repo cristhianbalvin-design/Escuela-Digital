@@ -174,7 +174,7 @@ type ControlMutation = Exclude<LiveRpcName,
   'get_live_activities' | 'save_live_activities' | 'get_live_control_state' | 'get_offering_live_session' | 'list_live_sessions' |
   'get_live_sets' | 'save_live_set' | 'delete_live_set' |
   'join_live_session' | 'search_live_roster' | 'get_live_state' |
-  'get_live_screen' | 'set_live_screen' | 'get_lesson_presentation' | 'save_lesson_presentation' | 'delete_lesson_presentation' | 'submit_live_response' | 'get_projector_state'>
+  'get_live_screen' | 'set_live_screen' | 'get_lesson_presentation' | 'save_lesson_presentation' | 'delete_lesson_presentation' | 'get_slide_notes' | 'save_slide_notes' | 'submit_live_response' | 'get_projector_state'>
 
 function useControlMutation<K extends ControlMutation>(name: K) {
   const cache = useQueryClient()
