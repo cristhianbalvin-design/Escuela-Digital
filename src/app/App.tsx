@@ -1,4 +1,6 @@
 import { CoordinationPlanDetail, CoordinationPlans } from '@/features/planning/CoordinationPlans'
+import { SessionPage } from '@/features/courses/SessionPage'
+import { ActivityPage, NewActivityPage, QuestionPage } from '@/features/live/LiveSetPages'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import {
   BrowserRouter,
@@ -353,6 +355,10 @@ function TenantView({ tenant }: { tenant: TenantLocation }) {
                 <Route path="certificados" element={<SignersPage />} />
                 <Route path="cursos/nuevo" element={<CreateCoursePage />} />
                 <Route path="cursos/:courseId" element={<CourseBuilderPage />} />
+                <Route path="cursos/:courseId/sesiones/:lessonId" element={<SessionPage />} />
+                <Route path="cursos/:courseId/sesiones/:lessonId/actividades/nueva" element={<NewActivityPage />} />
+                <Route path="cursos/:courseId/sesiones/:lessonId/actividades/:setId" element={<ActivityPage />} />
+                <Route path="cursos/:courseId/sesiones/:lessonId/actividades/:setId/preguntas/:questionId" element={<QuestionPage />} />
                 <Route path="ediciones/nueva" element={<CreateOfferingPage />} />
                 <Route path="ediciones/:offeringId" element={<OfferingDetailPage />} />
               </>

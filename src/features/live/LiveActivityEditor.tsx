@@ -32,7 +32,7 @@ function defaultConfig(type: LiveType): Record<string, unknown> {
   return {}
 }
 
-type Only = { id: string; create?: { type: LiveType; planItemId: string | null; config?: Record<string, unknown> } }
+type Only = { id: string; create?: { type: LiveType; planItemId: string | null; setId?: string | null; config?: Record<string, unknown> } }
 export function LiveActivityEditor({ lessonId, editable, planItemId, only, onSaved }: {
   lessonId: string; editable: boolean; planItemId?: string | null; only?: Only; onSaved?: () => void
 }) {
@@ -42,8 +42,8 @@ export function LiveActivityEditor({ lessonId, editable, planItemId, only, onSav
   const save = useSaveLiveActivities(lessonId)
   const [draft, setDraft] = useState<Item[] | null>(null)
   const [message, setMessage] = useState('')
-  const [fresh] = useState<Item | null>(() => only?.create ? { id: only.id, title: '', type: only.create.type, config: only.create.config ?? defaultConfig(only.create.type), plan_item_id: only.create.planItemId } : null)
-  const loaded = query.data?.map((item): Item => ({ id: item.id, title: item.title, type: item.type, config: item.config, plan_item_id: item.plan_item_id })) ?? []
+  const [fresh] = useState<Item | null>(() => only?.create ? { id: only.id, title: '', type: only.create.type, config: only.create.config ?? defaultConfig(only.create.type), plan_item_id: only.create.planItemId, set_id: only.create.setId ?? null } : null)
+  const loaded = query.data?.map((item): Item => ({ id: item.id, title: item.title, type: item.type, config: item.config, set_id: item.set_id, plan_item_id: item.plan_item_id })) ?? []
   const creating = !!fresh && !!query.data && !loaded.some((item) => item.id === fresh.id)
   const items = draft ?? (creating && fresh ? [...loaded, fresh] : loaded)
   const planItems = plan.data?.items ?? []

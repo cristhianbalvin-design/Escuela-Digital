@@ -9,7 +9,7 @@ import { useRoundCountdown } from './LiveSpecial'
 import { SessionNav } from './SessionNav'
 import type { LiveRpcOutput } from './live-contract'
 import {
-  useCloseLiveRun, useCreateLiveSession, useEndLiveSession, useLaunchLiveRun, useLiveActivities, useOfferingLiveSession,
+  useCloseLiveRun, useCreateLiveSession, useEndLiveSession, useLaunchLiveRun, useLiveActivities, useLiveSets, useOfferingLiveSession,
   useResetLiveRun, useResetLiveSessionResults, useSetLiveRunPaused, useSetLiveRunRanking, useSetLiveRunReveal, useSetLiveRunVisibility,
 } from './live-teacher-api'
 
@@ -52,7 +52,11 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
   const live = session && session.lesson_id === lessonId ? session : null
   const relevant = !!live
   const active = live?.status === 'active'
-  const activities = [...(relevant ? state?.activities ?? [] : lessonActivities.data ?? [])].sort((a, b) => a.position - b.position)
+  const setsQuery = useLiveSets(lessonId)
+  const setOrder = new Map((setsQuery.data ?? []).map((set) => [set.id, set.position]))
+  const setRank = (id: string | null) => id === null ? Number.MAX_SAFE_INTEGER : setOrder.get(id) ?? Number.MAX_SAFE_INTEGER - 1
+  const activities = [...(relevant ? state?.activities ?? [] : lessonActivities.data ?? [])]
+    .sort((a, b) => setRank(a.set_id) - setRank(b.set_id) || a.position - b.position)
   const runs = relevant ? state?.runs ?? [] : []
   const blocks = plan.data?.items ?? []
   const done = new Set((sessionPlan.data?.progress ?? []).filter((item) => item.done).map((item) => item.item_id))
@@ -68,8 +72,11 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
   const next = blockActs.find((item) => !runs.some((run) => run.activity_id === item.id))
   const nextBlock = blocks.find((block) => block.id !== selectedId && pendingIn(block.id) > 0
     && blocks.indexOf(block) > blocks.findIndex((item) => item.id === selectedId))
-  const currentIndex = current ? blockActs.findIndex((item) => item.id === current.activity_id) : -1
-  const quizActs = blockActs.filter((item) => item.type === 'quiz')
+  const currentSetId = current ? activities.find((item) => item.id === current.activity_id)?.set_id ?? null : null
+  const currentSet = setsQuery.data?.find((set) => set.id === currentSetId)
+  const setQuestions = blockActs.filter((item) => item.set_id === currentSetId)
+  const currentIndex = current ? setQuestions.findIndex((item) => item.id === current.activity_id) : -1
+  const quizActs = setQuestions.filter((item) => item.type === 'quiz')
   const quizIndex = current ? quizActs.findIndex((item) => item.id === current.activity_id) : -1
   const formative = current?.config.formative === true
   const rankingDue = current?.type === 'quiz' && !formative && (quizIndex === 2 || quizIndex === quizActs.length - 1)
@@ -172,7 +179,7 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm font-semibold uppercase tracking-wide text-brand">
             {selected ? `${t('live.cockpit.now')} · ${selected.title}` : t('live.prepareEmpty')}
-            {current && currentIndex >= 0 ? ` · ${t('live.activityStep', { number: currentIndex + 1, total: blockActs.length })}` : ''}</p>
+            {currentSet ? ` · ${currentSet.title}` : ''}{current && currentIndex >= 0 && setQuestions.length > 1 ? ` · ${t('live.cockpit.question', { number: currentIndex + 1, total: setQuestions.length })}` : ''}</p>
           <ol aria-label={t('live.cockpit.steps')} className="flex flex-wrap gap-1.5 text-xs font-semibold">{chips.map((chip) =>
             <li key={chip.label} aria-current={chip.now ? 'step' : undefined} className={`rounded-full border px-2.5 py-1 ${chip.now ? 'border-brand bg-brand text-white' : chip.on ? 'border-brand text-brand' : 'border-border text-text-muted'}`}>{chip.label}</li>)}</ol>
         </div>

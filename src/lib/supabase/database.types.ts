@@ -1833,6 +1833,9 @@ export type Database = {
       moderate_live_response: { Args: { p_response_id: string; p_hidden: boolean; p_pinned: boolean }; Returns: Json }
       merge_live_term: { Args: { p_run_id: string; p_term: string; p_merged_into: string | null; p_hidden: boolean }; Returns: Json }
       end_live_session: { Args: { p_session_id: string }; Returns: Json }
+      get_live_sets: { Args: { p_lesson_id: string }; Returns: Json }
+      save_live_set: { Args: { p_lesson_id: string; p_set: Json }; Returns: Json }
+      delete_live_set: { Args: { p_set_id: string }; Returns: Json }
       list_live_sessions: { Args: { p_offering_id: string; p_lesson_id: string }; Returns: Json }
       reset_live_run: { Args: { p_run_id: string }; Returns: Json }
       reset_live_session_results: { Args: { p_session_id: string }; Returns: Json }

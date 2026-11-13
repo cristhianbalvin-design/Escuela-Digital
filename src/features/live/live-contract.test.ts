@@ -5,7 +5,7 @@ const id = 'a4e2f934-65bb-4b06-a583-24200c54ab01'
 const code = 'ABC234'
 const token = 'a'.repeat(64)
 const at = '2026-11-12T09:00:00+00:00'
-const activity = { id, plan_item_id: null, title: 'Pregunta', type: 'poll_single',
+const activity = { id, set_id: null, plan_item_id: null, title: 'Pregunta', type: 'poll_single',
   config: { options: [{ id: 'a', label: 'Sí' }, { id: 'b', label: 'No' }] }, position: 0 }
 const response = { id, answer: 'a', hidden: false, pinned: false, participant_name: null }
 const results = { total: 1, rows: [{ id: 'a', label: 'Sí', count: 1, percent: 100 }], average: null, responses: [] }
@@ -104,6 +104,7 @@ describe('salidas JSON de las 18 RPC en vivo', () => {
     join_live_session: { token, state: participantState },
     get_live_state: participantState, submit_live_response: participantState,
     get_projector_state: projectorState, list_live_sessions: [],
+    get_live_sets: [], save_live_set: { id, sets: [] }, delete_live_set: [],
   }
 
   it.each(Object.keys(examples) as LiveRpcName[])('%s acepta su estructura', (name) => {

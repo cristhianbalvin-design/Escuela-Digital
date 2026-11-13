@@ -90,6 +90,34 @@ export function useLiveActivities(lessonId: string) {
   })
 }
 
+export const liveSetsKey = (lessonId: string) => ['live', 'sets', lessonId] as const
+export function useLiveSets(lessonId: string) {
+  return useQuery({
+    queryKey: liveSetsKey(lessonId), enabled: !!lessonId && !!supabase,
+    queryFn: () => liveRpc('get_live_sets', { p_lesson_id: lessonId }),
+  })
+}
+export function useSaveLiveSet(lessonId: string) {
+  const cache = useQueryClient()
+  return useMutation({
+    mutationFn: (set: LiveRpcInput<'save_live_set'>['p_set']) => liveRpc('save_live_set', { p_lesson_id: lessonId, p_set: set }),
+    onSuccess: (result) => {
+      cache.setQueryData(liveSetsKey(lessonId), result.sets)
+      void cache.invalidateQueries({ queryKey: liveActivitiesKey(lessonId) })
+    },
+  })
+}
+export function useDeleteLiveSet(lessonId: string) {
+  const cache = useQueryClient()
+  return useMutation({
+    mutationFn: (setId: string) => liveRpc('delete_live_set', { p_set_id: setId }),
+    onSuccess: (sets) => {
+      cache.setQueryData(liveSetsKey(lessonId), sets)
+      void cache.invalidateQueries({ queryKey: liveActivitiesKey(lessonId) })
+    },
+  })
+}
+
 export function useSaveLiveActivities(lessonId: string) {
   const cache = useQueryClient()
   return useMutation({
@@ -97,6 +125,7 @@ export function useSaveLiveActivities(lessonId: string) {
       liveRpc('save_live_activities', { p_lesson_id: lessonId, p_items: items }),
     onSuccess: (activities) => {
       cache.setQueryData(liveActivitiesKey(lessonId), activities)
+      void cache.invalidateQueries({ queryKey: liveSetsKey(lessonId) })
       const controls = cache.getQueriesData<LiveRpcOutput<'get_live_control_state'>>({ queryKey: ['live', 'control'] })
       for (const [key, state] of controls) if (state?.session.lesson_id === lessonId) {
         cache.setQueryData(key, { ...state, activities })
@@ -143,6 +172,7 @@ export function useLiveSessions(offeringId: string, lessonId: string) {
 
 type ControlMutation = Exclude<LiveRpcName,
   'get_live_activities' | 'save_live_activities' | 'get_live_control_state' | 'get_offering_live_session' | 'list_live_sessions' |
+  'get_live_sets' | 'save_live_set' | 'delete_live_set' |
   'join_live_session' | 'get_live_state' | 'submit_live_response' | 'get_projector_state'>
 
 function useControlMutation<K extends ControlMutation>(name: K) {

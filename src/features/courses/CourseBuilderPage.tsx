@@ -1,5 +1,4 @@
-import { PlanEditor } from '@/features/planning/Planning'
-import { LiveActivityIndex } from '@/features/live/LiveActivityIndex'
+import { SessionRow } from './SessionRow'
 import { useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -15,7 +14,7 @@ import { ActivitiesPanel } from './activities/ActivitiesPanel'
 import { LessonActivityPicker } from './activities/LessonActivityPicker'
 import { readableError } from './schemas'
 
-function between(before: number | undefined, after: number | undefined): number | null {
+export function between(before: number | undefined, after: number | undefined): number | null {
   const position = before === undefined
     ? after === undefined ? 1 : after / 2
     : after === undefined ? before + 1 : (before + after) / 2
@@ -167,7 +166,8 @@ export function CourseBuilderPage() {
           const siblings = data.lessons.filter((lesson) => lesson.module_id === module.id)
           return (
             <ModuleEditor key={`${module.id}:${module.title}`} module={module}
-              lessons={siblings} editable={editable} contentEditable={contentEditable}
+              lessons={siblings} editable={editable}
+              sessionOffset={modules.slice(0, index).reduce((sum, item) => sum + data.lessons.filter((lesson) => lesson.module_id === item.id).length, 0)}
               pending={mutation.isPending}
               onRename={(title) => void run({ kind: 'renameModule', id: module.id, title })}
               onDelete={() => void run({
@@ -181,10 +181,6 @@ export function CourseBuilderPage() {
                 position: (siblings.at(-1)?.position ?? 0) + 1,
                 lessonType,
               })}
-              onSaveLesson={(lesson, title, content) => void run({
-                kind: 'saveLesson', id: lesson.id, title, content,
-              })}
-              onDeleteLesson={(lesson) => void run({ kind: 'deleteLesson', id: lesson.id })}
               onMoveLesson={(lesson, lessonIndex, direction) =>
                 void moveLesson(lesson, siblings, lessonIndex, direction)}
             />
@@ -204,13 +200,13 @@ export function CourseBuilderPage() {
 }
 
 function ModuleEditor({
-  module, lessons, editable, contentEditable, pending, onRename, onDelete, onMove,
-  canUp, canDown, onAddLesson, onSaveLesson, onDeleteLesson, onMoveLesson,
+  module, lessons, editable, pending, onRename, onDelete, onMove,
+  canUp, canDown, onAddLesson, onMoveLesson, sessionOffset,
 }: {
+  sessionOffset: number
   module: Module
   lessons: Lesson[]
   editable: boolean
-  contentEditable: boolean
   pending: boolean
   onRename: (title: string) => void
   onDelete: () => void
@@ -218,8 +214,6 @@ function ModuleEditor({
   canUp: boolean
   canDown: boolean
   onAddLesson: (lessonType: 'reading' | 'quiz' | 'assignment') => void
-  onSaveLesson: (lesson: Lesson, title: string, content: Lesson['content']) => void
-  onDeleteLesson: (lesson: Lesson) => void
   onMoveLesson: (lesson: Lesson, index: number, direction: -1 | 1) => void
 }) {
   const { t } = useTranslation()
@@ -244,16 +238,11 @@ function ModuleEditor({
             }}>{t('teacherCommon.delete')}</Button>
         </div>
       )}
-      <div className="grid gap-3">
+      <div className="grid gap-2">
         {lessons.map((lesson, index) => (
-          <LessonEditor key={`${lesson.id}:${lesson.title}`} lesson={lesson}
-            versionId={module.version_id}
-            editable={editable} contentEditable={contentEditable} pending={pending}
-            canUp={index > 0} canDown={index < lessons.length - 1}
-            onSave={(newTitle, content) => onSaveLesson(lesson, newTitle, content)}
-            onDelete={() => onDeleteLesson(lesson)}
-            onMove={(direction) => onMoveLesson(lesson, index, direction)}
-          />
+          <SessionRow key={lesson.id} lesson={lesson} number={sessionOffset + index + 1}
+            editable={editable} pending={pending} canUp={index > 0} canDown={index < lessons.length - 1}
+            onMove={(direction) => onMoveLesson(lesson, index, direction)} />
         ))}
       </div>
       {editable && (
@@ -280,7 +269,7 @@ function activityId(lesson: Lesson): string | null {
   return typeof value === 'string' ? value : null
 }
 
-function LessonEditor({
+export function LessonEditor({
   lesson, versionId, editable, contentEditable, pending, canUp, canDown, onSave, onDelete, onMove,
 }: {
   lesson: Lesson
@@ -336,8 +325,6 @@ function LessonEditor({
       ) : (
         <LessonContent content={lesson.content} />
       )}
-      <PlanEditor lessonId={lesson.id} tenantId={lesson.tenant_id} editable={editable || contentEditable} />
-      {(editable || contentEditable) && <LiveActivityIndex lessonId={lesson.id} />}
       <LessonResources lessonId={lesson.id} tenantId={lesson.tenant_id}
         versionId={lesson.version_id} editable={editable || contentEditable} />
       {editable && (

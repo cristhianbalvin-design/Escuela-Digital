@@ -57,8 +57,19 @@ const activityMatchesConfig = (value: { type: z.infer<typeof activityType>; conf
   configForType[value.type].safeParse(value.config).success
 const activityMatchesInputConfig = (value: { type: z.infer<typeof activityType>; config: Record<string, unknown> }) =>
   activityMatchesConfig(value) || (value.type === 'wordcloud' && Object.keys(value.config).length === 0)
+export const liveSetKinds = ['survey', 'static_quiz', 'dynamic_quiz', 'compare', 'opportunity'] as const
+export type LiveSetKind = typeof liveSetKinds[number]
+const liveSetSettings = z.object({ formative: z.boolean().optional() }).strict()
+const liveSetInput = z.object({
+  id: uuid.optional(), plan_item_id: uuid.nullable(), title: z.string().trim().min(1).max(200),
+  kind: z.enum(liveSetKinds), settings: liveSetSettings,
+}).strict()
+const liveSetsOutput = z.array(z.object({
+  id: uuid, plan_item_id: uuid.nullable(), title: z.string(), kind: z.enum(liveSetKinds),
+  settings: liveSetSettings, position: z.number().int(), question_count: z.number().int().nonnegative(),
+}).strict())
 const activityInput = z.object({
-  id: uuid.optional(), plan_item_id: uuid.nullable().optional(),
+  id: uuid.optional(), set_id: uuid.nullable().optional(), plan_item_id: uuid.nullable().optional(),
   title: z.string().trim().min(1).max(200), type: activityType, config,
 }).strict().refine(activityMatchesInputConfig)
 
@@ -82,6 +93,9 @@ export const liveRpcInputSchemas = {
   moderate_live_response: z.object({ p_response_id: uuid, p_hidden: z.boolean(), p_pinned: z.boolean() }).strict(),
   merge_live_term: z.object({ p_run_id: uuid, p_term: z.string().min(1).max(30), p_merged_into: z.string().min(1).max(30).nullable(), p_hidden: z.boolean() }).strict(),
   end_live_session: sessionId,
+  get_live_sets: lessonId,
+  save_live_set: z.object({ p_lesson_id: uuid, p_set: liveSetInput }).strict(),
+  delete_live_set: z.object({ p_set_id: uuid }).strict(),
   list_live_sessions: z.object({ p_offering_id: uuid, p_lesson_id: uuid }).strict(),
   reset_live_run: runId,
   reset_live_session_results: sessionId,
@@ -101,7 +115,7 @@ export type LiveRpcInput<K extends LiveRpcName> = z.input<(typeof liveRpcInputSc
 const timestamp = z.iso.datetime({ offset: true })
 const count = z.number().int().nonnegative()
 const activityOutput = z.object({
-  id: uuid, plan_item_id: uuid.nullable(), title: z.string().min(1).max(200),
+  id: uuid, set_id: uuid.nullable(), plan_item_id: uuid.nullable(), title: z.string().min(1).max(200),
   type: activityType, config, position: count,
 }).strict().refine(activityMatchesConfig)
 const activitiesOutput = z.array(activityOutput)
@@ -185,6 +199,9 @@ export const liveRpcOutputSchemas = {
   moderate_live_response: controlStateOutput,
   merge_live_term: controlStateOutput,
   end_live_session: controlStateOutput,
+  get_live_sets: liveSetsOutput,
+  save_live_set: z.object({ id: uuid, sets: liveSetsOutput }).strict(),
+  delete_live_set: liveSetsOutput,
   list_live_sessions: z.array(z.object({ id: uuid, code, status: z.enum(['active', 'ended']), created_at: timestamp, ended_at: timestamp.nullable(), participant_count: count, run_count: count }).strict()),
   reset_live_run: controlStateOutput,
   reset_live_session_results: controlStateOutput,
