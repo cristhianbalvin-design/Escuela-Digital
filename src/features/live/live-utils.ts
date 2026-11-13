@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const liveTypes = ['poll_single', 'poll_multi', 'vote', 'wordcloud', 'open', 'scale', 'quiz', 'compare', 'opportunity'] as const
+export const liveTypes = ['poll_single', 'poll_multi', 'vote', 'wordcloud', 'open', 'scale', 'quiz', 'compare', 'opportunity', 'template'] as const
 export type LiveType = typeof liveTypes[number]
 
 const help = z.string().trim().min(1).max(200).optional()
@@ -34,8 +34,26 @@ const compareConfig = z.object({
   criteria: z.array(z.object({ id: z.string().trim().min(1).max(100), label: z.string().trim().min(1).max(80), description: z.string().max(300) }).strict()).min(1).max(10)
     .refine((items) => new Set(items.map((item) => item.id)).size === items.length),
   scale_max: z.number().int().min(3).max(10).default(5), final_question: z.string().max(200),
-  ask_comment: z.boolean(), comment_max: z.number().int().min(0).max(200), help, context,
+  ask_comment: z.boolean(), comment_max: z.number().int().min(0).max(200), blind: z.boolean().optional(), help, context,
 }).strict()
+
+export const templateFieldKinds = ['text', 'long', 'select'] as const
+export const templateFieldSchema = z.object({
+  id: z.string().trim().min(1).max(100), label: z.string().trim().min(1).max(200), kind: z.enum(templateFieldKinds),
+  required: z.boolean().optional(), help: z.string().max(300).optional(),
+  options: z.array(z.string().trim().min(1).max(80)).min(2).max(20).optional(),
+}).strict().refine((field) => (field.kind === 'select') === (field.options !== undefined))
+export type TemplateField = z.infer<typeof templateFieldSchema>
+const templateConfig = z.object({
+  fields: z.array(templateFieldSchema).min(1).max(15).refine((items) => new Set(items.map((item) => item.id)).size === items.length),
+  help, context,
+}).strict()
+export const templateAnswerSchema = z.record(z.string(), z.string().max(4000))
+export type TemplateAnswer = z.infer<typeof templateAnswerSchema>
+export function isTemplateAnswer(value: unknown): value is TemplateAnswer {
+  return templateAnswerSchema.safeParse(value).success
+}
+export const OPEN_DEFAULT_MAX = 280
 
 const choiceList = z.array(z.string().trim().min(1).max(80)).min(2).max(20).refine((items) => new Set(items).size === items.length)
 const opportunityConfig = z.object({ areas: choiceList, problems: choiceList, solutions: choiceList, help, context }).strict()
@@ -61,11 +79,12 @@ export const liveActivitySchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('vote'), config: choiceConfig }).strict(),
   z.object({ type: z.literal('poll_multi'), config: multiConfig }).strict(),
   z.object({ type: z.literal('wordcloud'), config: wordConfig }).strict(),
-  z.object({ type: z.literal('open'), config: z.object({ help, indicator_label: indicatorLabel, context }).strict() }).strict(),
+  z.object({ type: z.literal('open'), config: z.object({ max_length: z.number().int().min(280).max(4000).optional(), help, indicator_label: indicatorLabel, context }).strict() }).strict(),
   z.object({ type: z.literal('scale'), config: scaleConfig }).strict(),
   z.object({ type: z.literal('quiz'), config: quizConfig }).strict(),
   z.object({ type: z.literal('compare'), config: compareConfig }).strict(),
   z.object({ type: z.literal('opportunity'), config: opportunityConfig }).strict(),
+  z.object({ type: z.literal('template'), config: templateConfig }).strict(),
 ])
 export type LiveActivity = z.output<typeof liveActivitySchema>
 
@@ -82,7 +101,7 @@ export function answerSchema(activity: LiveActivity) {
       return z.array(z.string().trim().min(1).max(30).refine((value) => normalizeTerm(value).length > 0))
         .min(1).max(activity.config.max_answers)
     case 'open':
-      return z.string().trim().min(1).max(280)
+      return z.string().trim().min(1).max(activity.config.max_length ?? OPEN_DEFAULT_MAX)
     case 'scale':
       return z.number().int().min(activity.config.scale_min).max(activity.config.scale_max)
     case 'quiz':
@@ -91,6 +110,15 @@ export function answerSchema(activity: LiveActivity) {
       const config = activity.config
       return opportunityAnswerSchema.refine((answer) => config.areas.includes(answer.area) && config.solutions.includes(answer.solution)
         && answer.problems.every((problem) => config.problems.includes(problem)))
+    }
+    case 'template': {
+      const fields = activity.config.fields
+      return templateAnswerSchema.refine((answer) =>
+        Object.entries(answer).every(([key, value]) => {
+          const field = fields.find((item) => item.id === key)
+          return field !== undefined && value.length <= (field.kind === 'long' ? 4000 : 300)
+            && (field.kind !== 'select' || value === '' || field.options!.includes(value))
+        }) && fields.every((field) => !field.required || (answer[field.id] ?? '').trim().length > 0))
     }
     case 'compare': {
       const config = activity.config

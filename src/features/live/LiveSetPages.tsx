@@ -15,10 +15,11 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 /** Qué preguntas admite cada tipo de actividad. */
 export const kindQuestions: Record<LiveSetKind, LiveType[]> = {
   survey: ['poll_single', 'poll_multi', 'wordcloud', 'scale', 'open', 'vote'],
-  static_quiz: ['quiz'], dynamic_quiz: ['quiz'], compare: ['compare'], opportunity: ['opportunity'],
+  static_quiz: ['quiz', 'poll_single', 'poll_multi', 'scale', 'open'], dynamic_quiz: ['quiz'], compare: ['compare'], opportunity: ['opportunity'],
+  template: ['template'],
 }
-const single = (kind: LiveSetKind) => kind === 'compare' || kind === 'opportunity'
-export const kindReady = (kind: LiveSetKind) => kind !== 'static_quiz'
+const single = (kind: LiveSetKind) => kind === 'compare' || kind === 'opportunity' || kind === 'template'
+export const kindReady = (_kind: LiveSetKind) => true
 
 function useBase() {
   const { courseId = '', lessonId = '' } = useParams()
@@ -79,7 +80,7 @@ export function NewActivityPage() {
   const block = plan.data?.items.find((item) => item.id === blockId)
   const kinds: { kind: LiveSetKind; formative?: boolean; group: 'multi' | 'special' }[] = [
     { kind: 'survey', group: 'multi' }, { kind: 'static_quiz', group: 'multi' }, { kind: 'dynamic_quiz', group: 'multi' },
-    { kind: 'dynamic_quiz', formative: true, group: 'multi' }, { kind: 'compare', group: 'special' }, { kind: 'opportunity', group: 'special' },
+    { kind: 'dynamic_quiz', formative: true, group: 'multi' }, { kind: 'compare', group: 'special' }, { kind: 'opportunity', group: 'special' }, { kind: 'template', group: 'special' },
   ]
   async function create(kind: LiveSetKind, formative?: boolean) {
     setError('')

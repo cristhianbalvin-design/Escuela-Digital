@@ -8,11 +8,13 @@ import { useLiveActivities, useSaveLiveActivities } from './live-teacher-api'
 import { defaultSpecialConfig, LiveSpecialEditor } from './LiveSpecialEditor'
 import { groupLiveActivities } from './live-groups'
 import { ActivityPreview } from './ActivityPreview'
+import { cleanTemplateConfig, defaultTemplateConfig, TemplateEditor } from './LiveTemplate'
 
 type Item = LiveRpcInput<'save_live_activities'>['p_items'][number]
 const field = 'w-full min-w-0 rounded-control border border-border bg-surface p-2'
 const oppKeys = ['areas', 'problems', 'solutions'] as const
 function cleanItem(item: Item): Item {
+  if (item.type === 'template') return { ...item, config: cleanTemplateConfig(item.config) }
   if (item.type !== 'opportunity') return item
   const config = { ...item.config }
   for (const key of oppKeys) config[key] = [...new Set((Array.isArray(config[key]) ? config[key] as unknown[] : []).map((value) => String(value).trim()).filter(Boolean))]
@@ -25,6 +27,7 @@ function defaultConfig(type: LiveType): Record<string, unknown> {
     solutions: ['Asistente', 'Coworker', 'Agente', 'Constructor', 'Automatización tradicional', 'No estoy seguro'],
   }
   if (type === 'quiz' || type === 'compare') return defaultSpecialConfig(type)
+  if (type === 'template') return defaultTemplateConfig()
   if (type === 'poll_single' || type === 'poll_multi' || type === 'vote')
     return { options: [{ id: crypto.randomUUID(), label: '' }, { id: crypto.randomUUID(), label: '' }] }
   if (type === 'wordcloud') return { max_answers: 3 }
@@ -95,6 +98,8 @@ export function LiveActivityEditor({ lessonId, editable, planItemId, only, onSav
           {item.type === 'wordcloud' && <label>{t('live.maxAnswersEditor')}<input className={field} type="number" min={1} max={20} value={typeof item.config.max_answers === 'number' ? item.config.max_answers : 3} disabled={!editable} onChange={(e) => change({ ...item.config, max_answers: Number(e.target.value) })} /></label>}
           {item.type === 'scale' && <div className="grid gap-2 sm:grid-cols-2"><label>{t('live.scaleMin')}<input className={field} type="number" min={-100} max={100} value={typeof item.config.scale_min === 'number' ? item.config.scale_min : 1} disabled={!editable} onChange={(e) => change({ ...item.config, scale_min: Number(e.target.value) })} /></label><label>{t('live.scaleMax')}<input className={field} type="number" min={-100} max={100} value={typeof item.config.scale_max === 'number' ? item.config.scale_max : 5} disabled={!editable} onChange={(e) => change({ ...item.config, scale_max: Number(e.target.value) })} /></label>{['scale_min', 'scale_max'].map((bound) => { const value = item.config[bound]; const labels = item.config.labels && typeof item.config.labels === 'object' ? item.config.labels as Record<string, string> : {}; return <label key={bound}>{t(bound === 'scale_min' ? 'live.scaleMinLabel' : 'live.scaleMaxLabel')}<input className={field} maxLength={200} value={typeof value === 'number' ? labels[String(value)] ?? '' : ''} disabled={!editable} onChange={(e) => { if (typeof value === 'number') change({ ...item.config, labels: { ...labels, [String(value)]: e.target.value } }) }} /></label> })}</div>}
           {item.type === 'opportunity' && oppKeys.map((key) => <label key={key}>{t(`live.opp.editor.${key}`)}<textarea className={`${field} min-h-32`} disabled={!editable} value={(Array.isArray(item.config[key]) ? item.config[key] as string[] : []).join('\n')} onChange={(e) => change({ ...item.config, [key]: e.target.value.split('\n') })} /></label>)}
+          {item.type === 'open' && <label>{t('live.maxLength')}<select className={field} value={typeof item.config.max_length === 'number' ? item.config.max_length : 280} disabled={!editable} onChange={(e) => { const next = { ...item.config }; const n = Number(e.target.value); if (n === 280) delete next.max_length; else next.max_length = n; change(next) }}>{[280, 500, 1000, 2000, 4000].map((n) => <option key={n} value={n}>{t('live.maxLengthOption', { count: n })}</option>)}</select></label>}
+          {item.type === 'template' && <TemplateEditor config={item.config} change={change} editable={editable} />}
           {(item.type === 'quiz' || item.type === 'compare') && <LiveSpecialEditor type={item.type} config={item.config} change={change} editable={editable} />}
           {editable && !only && <div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={group.activities[0]?.index === index} aria-label={t('live.moveUp')} onClick={() => move(index, -1)}>↑</Button><Button variant="secondary" disabled={group.activities.at(-1)?.index === index} aria-label={t('live.moveDown')} onClick={() => move(index, 1)}>↓</Button><Button variant="secondary" onClick={() => setDraft([...items.slice(0, index + 1), { ...item, id: crypto.randomUUID(), title: `${item.title} (${t('live.copy')})` }, ...items.slice(index + 1)])}>{t('live.duplicateActivity')}</Button><Button variant="destructive" onClick={() => setDraft(items.filter((_, i) => i !== index))}>{t('live.deleteActivity')}</Button></div>}
         </div>

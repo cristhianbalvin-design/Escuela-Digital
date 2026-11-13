@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import type { LiveRpcOutput } from './live-contract'
 import { OpportunityMap } from './LiveOpportunity'
+import { StaticQuizResults, TemplateResponses } from './LiveTemplate'
 import { averageSelections, liveActivitySchema, topTerms, weightedScore } from './live-utils'
 
 type Run = NonNullable<LiveRpcOutput<'get_projector_state'>['run']>
@@ -22,6 +23,8 @@ export function LiveResults({ run, large = false }: { run: Run; large?: boolean 
   const results = run.results
   if (!run.show_results || !results) return null
   if (run.type === 'opportunity') return <OpportunityMap answers={results.responses.map((response) => response.answer)} large={large} />
+  if (run.type === 'template') return <TemplateResponses config={run.config} responses={results.responses} large={large} />
+  if (run.type === 'static_quiz') return <StaticQuizResults results={results} large={large} />
 
   if (run.type === 'wordcloud') {
     const terms = results.rows.filter(isTerm)

@@ -18,6 +18,7 @@ import {
   useOfferingRoster, useOutline,
 } from './api'
 import { InvitationPanel } from './InvitationPanel'
+import { OfferingSessionsTab } from './OfferingSessionsTab'
 import { StudentEditForm } from './StudentEditForm'
 import { GradingTab } from './grading/GradingTab'
 import { CertificatesTab } from '@/features/certificates'
@@ -27,7 +28,7 @@ import { EnrollForm, ImportPanel } from '@/features/imports'
 import { shownEmail } from '@/lib/placeholder-email'
 
 type EnrollmentStatus = Database['public']['Enums']['enrollment_status']
-type Tab = 'planning' | 'summary' | 'students' | 'content' | 'schedule' | 'attendance' | 'grading' | 'certificates'
+type Tab = 'sessions' | 'planning' | 'summary' | 'students' | 'content' | 'schedule' | 'attendance' | 'grading' | 'certificates'
 
 const nextStatus: Record<
   Database['public']['Enums']['offering_status'],
@@ -112,7 +113,7 @@ export function OfferingDetailPage() {
   const notify = useToast()
   const { offeringId } = useParams()
   const tenantId = useTenantAccess().active?.tenant_id
-  const [tab, setTab] = useState<Tab>('summary')
+  const [tab, setTab] = useState<Tab>('sessions')
   const [notice, setNotice] = useState('')
   const [sendingAccess, setSendingAccess] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -226,7 +227,7 @@ export function OfferingDetailPage() {
       <h1 className="font-heading text-2xl font-bold">{offering.title}</h1>
       <div role="tablist" aria-label={t('teacherOfferings.detailTabs')}
         className="flex flex-wrap gap-2">
-        {(['summary', 'students', 'content', 'planning', 'schedule', 'attendance', 'grading', 'certificates'] as const).map((item) => (
+        {(['sessions', 'summary', 'students', 'content', 'planning', 'schedule', 'attendance', 'grading', 'certificates'] as const).map((item) => (
           <Button key={item} role="tab" aria-selected={tab === item}
             variant={tab === item ? 'primary' : 'secondary'}
             onClick={() => setTab(item)}>
@@ -417,6 +418,7 @@ export function OfferingDetailPage() {
             )}
           </div>
         )}
+        {tab === 'sessions' && offeringId && <OfferingSessionsTab offeringId={offeringId} courseId={offering.course_id ?? null} />}
         {tab === 'planning' && offeringId && <PlanningTab offeringId={offeringId} />}
         {tab === 'schedule' && offeringId && <ScheduleTab offeringId={offeringId} />}
         {tab === 'attendance' && offeringId && <AttendanceTab offeringId={offeringId} />}

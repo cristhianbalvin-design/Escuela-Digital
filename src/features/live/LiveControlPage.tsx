@@ -9,12 +9,17 @@ import { useRoundCountdown } from './LiveSpecial'
 import { SessionNav } from './SessionNav'
 import type { LiveRpcOutput } from './live-contract'
 import {
-  useCloseLiveRun, useCreateLiveSession, useEndLiveSession, useLaunchLiveRun, useLiveActivities, useLiveSets, useOfferingLiveSession,
+  useCloseLiveRun, useCreateLiveSession, useEndLiveSession, useLaunchLiveRun, useLaunchLiveSet, useLiveActivities, useLiveSets, useOfferingLiveSession,
   useResetLiveRun, useResetLiveSessionResults, useSetLiveRunPaused, useSetLiveRunRanking, useSetLiveRunReveal, useSetLiveRunVisibility,
 } from './live-teacher-api'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 type Run = LiveRpcOutput<'get_live_control_state'>['runs'][number]
+/** Un cuestionario estático es una sola ronda que cubre todas sus preguntas. */
+function coveredIds(run: Run): string[] {
+  if (run.type !== 'static_quiz') return [run.activity_id]
+  return Array.isArray(run.config.questions) ? (run.config.questions as { id: string }[]).map((question) => question.id) : [run.activity_id]
+}
 
 function Countdown({ run }: { run: Run }) {
   const seconds = typeof run.config.seconds === 'number' ? run.config.seconds : 20
@@ -42,7 +47,7 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
   const plan = useLessonPlan(lessonId)
   const sessionPlan = useSessionPlan(offeringId, lessonId)
   const lessonActivities = useLiveActivities(lessonId)
-  const create = useCreateLiveSession(); const launch = useLaunchLiveRun(); const close = useCloseLiveRun()
+  const create = useCreateLiveSession(); const launch = useLaunchLiveRun(); const launchSet = useLaunchLiveSet(); const close = useCloseLiveRun()
   const visibility = useSetLiveRunVisibility(); const pause = useSetLiveRunPaused(); const reveal = useSetLiveRunReveal()
   const ranking = useSetLiveRunRanking(); const resetRun = useResetLiveRun(); const resetAll = useResetLiveSessionResults()
   const end = useEndLiveSession()
@@ -60,22 +65,28 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
   const runs = relevant ? state?.runs ?? [] : []
   const blocks = plan.data?.items ?? []
   const done = new Set((sessionPlan.data?.progress ?? []).filter((item) => item.done).map((item) => item.item_id))
-  const pendingIn = (id: string) => activities.filter((item) => item.plan_item_id === id && !runs.some((run) => run.activity_id === item.id)).length
+  const launched = (activityId: string) => runs.some((run) => coveredIds(run).includes(activityId))
+  const pendingIn = (id: string) => activities.filter((item) => item.plan_item_id === id && !launched(item.id)).length
   const openRun = runs.find((run) => run.status === 'open')
   const openBlock = openRun ? activities.find((item) => item.id === openRun.activity_id)?.plan_item_id ?? null : null
   const selectedId = picked ?? openBlock ?? blocks.find((block) => pendingIn(block.id) > 0)?.id ?? blocks[0]?.id ?? null
   const selected = blocks.find((block) => block.id === selectedId)
   const blockActs = activities.filter((item) => item.plan_item_id === selectedId)
-  const blockRuns = runs.filter((run) => blockActs.some((item) => item.id === run.activity_id))
+  const blockRuns = runs.filter((run) => blockActs.some((item) => coveredIds(run).includes(item.id)))
   const current = openRun && blockRuns.includes(openRun) ? openRun
     : [...blockRuns].sort((a, b) => Date.parse(b.opened_at) - Date.parse(a.opened_at))[0]
-  const next = blockActs.find((item) => !runs.some((run) => run.activity_id === item.id))
+  const next = blockActs.find((item) => !launched(item.id))
+  const nextSet = next ? setsQuery.data?.find((set) => set.id === next.set_id && set.kind === 'static_quiz') : undefined
+  const nextTitle = nextSet?.title ?? next?.title ?? ''
+  const launchNext = (sessionId: string) => nextSet
+    ? launchSet.mutateAsync({ p_session_id: sessionId, p_set_id: nextSet.id })
+    : launch.mutateAsync({ p_session_id: sessionId, p_activity_id: next!.id })
   const nextBlock = blocks.find((block) => block.id !== selectedId && pendingIn(block.id) > 0
     && blocks.indexOf(block) > blocks.findIndex((item) => item.id === selectedId))
   const currentSetId = current ? activities.find((item) => item.id === current.activity_id)?.set_id ?? null : null
   const currentSet = setsQuery.data?.find((set) => set.id === currentSetId)
   const setQuestions = blockActs.filter((item) => item.set_id === currentSetId)
-  const currentIndex = current ? setQuestions.findIndex((item) => item.id === current.activity_id) : -1
+  const currentIndex = current && current.type !== 'static_quiz' ? setQuestions.findIndex((item) => item.id === current.activity_id) : -1
   const quizActs = setQuestions.filter((item) => item.type === 'quiz')
   const quizIndex = current ? quizActs.findIndex((item) => item.id === current.activity_id) : -1
   const formative = current?.config.formative === true
@@ -114,19 +125,19 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
   // Un solo paso principal: siempre el siguiente movimiento lógico de la clase.
   let primary: { label: string; run: () => void } | null = null
   if (!session) primary = next
-    ? { label: t('live.cockpit.startAndLaunch'), run: () => void act(async () => { const s = await ensureSession(); await launch.mutateAsync({ p_session_id: s.id, p_activity_id: next.id }) }) }
+    ? { label: t('live.cockpit.startAndLaunch'), run: () => void act(async () => { const s = await ensureSession(); await launchNext(s.id) }) }
     : { label: t('live.startClass'), run: () => void act(ensureSession) }
   else if (active && openRun && !blockRuns.includes(openRun)) primary = { label: t('live.cockpit.goToOpen'), run: () => setPicked(openBlock) }
   else if (active && current?.status === 'open') primary = {
-    label: t(current.type === 'quiz' ? 'live.cockpit.closeAndReveal' : 'live.cockpit.closeAndShow'),
+    label: t(current.type === 'quiz' || current.type === 'static_quiz' ? 'live.cockpit.closeAndReveal' : 'live.cockpit.closeAndShow'),
     run: () => void act(async () => {
       await close.mutateAsync({ p_run_id: current.id })
-      if (current.type === 'quiz') await reveal.mutateAsync({ p_run_id: current.id, p_reveal: true })
+      if (current.type === 'quiz' || current.type === 'static_quiz') await reveal.mutateAsync({ p_run_id: current.id, p_reveal: true })
       await visibility.mutateAsync({ p_run_id: current.id, p_show_results: true })
     }),
   }
-  else if (active && current && (current.type === 'quiz' || current.type === 'compare') && !current.reveal) primary = {
-    label: t(current.type === 'quiz' ? 'live.revealCorrect' : 'live.revealModels'),
+  else if (active && current && (current.type === 'quiz' || current.type === 'static_quiz' || (current.type === 'compare' && current.config.blind !== false)) && !current.reveal) primary = {
+    label: t(current.type === 'compare' ? 'live.revealModels' : 'live.revealCorrect'),
     run: () => void act(async () => {
       await reveal.mutateAsync({ p_run_id: current.id, p_reveal: true })
       if (!current.show_results) await visibility.mutateAsync({ p_run_id: current.id, p_show_results: true })
@@ -134,14 +145,14 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
   }
   else if (active && current && !current.show_results) primary = { label: t('live.showResults'), run: () => void act(() => visibility.mutateAsync({ p_run_id: current.id, p_show_results: true })) }
   else if (active && current && rankingDue && !current.show_ranking) primary = { label: t('live.showRanking'), run: () => void act(() => ranking.mutateAsync({ p_run_id: current.id, p_show: true })) }
-  else if (active && next) primary = { label: t('live.cockpit.launchNamed', { title: next.title }), run: () => void act(() => launch.mutateAsync({ p_session_id: live!.id, p_activity_id: next.id })) }
+  else if (active && next) primary = { label: t('live.cockpit.launchNamed', { title: nextTitle }), run: () => void act(() => launchNext(live!.id)) }
   else if (active && nextBlock) primary = { label: t('live.cockpit.nextBlock', { title: nextBlock.title }), run: () => setPicked(nextBlock.id) }
 
   const chips = current ? [
     { label: t('live.cockpit.chipLaunched'), on: true },
     { label: t(current.paused ? 'live.responsesPaused' : 'live.cockpit.chipAnswering'), on: current.status === 'open', now: current.status === 'open' },
     { label: t('live.cockpit.chipResults'), on: current.status === 'closed' && current.show_results },
-    ...(current.type === 'quiz' || current.type === 'compare' ? [{ label: t('live.cockpit.chipRevealed'), on: current.reveal }] : []),
+    ...(current.type === 'quiz' || current.type === 'static_quiz' || current.type === 'compare' ? [{ label: t('live.cockpit.chipRevealed'), on: current.reveal }] : []),
     ...(current.type === 'quiz' && !formative ? [{ label: t('live.ranking'), on: current.show_ranking }] : []),
   ] : []
 
@@ -214,10 +225,10 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
           </div>
           {active && current && <div className="flex flex-wrap gap-2 text-sm">
             <Button variant="secondary" disabled={busy} onClick={() => void act(() => visibility.mutateAsync({ p_run_id: current.id, p_show_results: !current.show_results }))}>{t(current.show_results ? 'live.hideResults' : 'live.showResults')}</Button>
-            {(current.type === 'quiz' || current.type === 'compare') && <Button variant="secondary" disabled={busy} onClick={() => void act(() => reveal.mutateAsync({ p_run_id: current.id, p_reveal: !current.reveal }))}>{t(current.reveal ? 'live.hideReveal' : current.type === 'quiz' ? 'live.revealCorrect' : 'live.revealModels')}</Button>}
+            {(current.type === 'quiz' || current.type === 'static_quiz' || current.type === 'compare') && <Button variant="secondary" disabled={busy} onClick={() => void act(() => reveal.mutateAsync({ p_run_id: current.id, p_reveal: !current.reveal }))}>{t(current.reveal ? 'live.hideReveal' : current.type === 'compare' ? 'live.revealModels' : 'live.revealCorrect')}</Button>}
             {current.type === 'quiz' && !formative && <Button variant="secondary" disabled={busy} onClick={() => void act(() => ranking.mutateAsync({ p_run_id: current.id, p_show: !current.show_ranking }))}>{t(current.show_ranking ? 'live.hideRanking' : 'live.showRanking')}</Button>}
           </div>}
-          {next && current && <p className="text-sm text-text-muted">{t('live.cockpit.after', { title: next.title })}</p>}
+          {next && current && <p className="text-sm text-text-muted">{t('live.cockpit.after', { title: nextTitle })}</p>}
           {message && <p role="alert">{message}</p>}
         </div>
 

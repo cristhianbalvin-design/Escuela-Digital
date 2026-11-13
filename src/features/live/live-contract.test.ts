@@ -97,7 +97,7 @@ describe('salidas JSON de las 18 RPC en vivo', () => {
   const examples: Record<LiveRpcName, unknown> = {
     get_live_activities: [activity], save_live_activities: [activity],
     create_live_session: controlState, get_live_control_state: controlState, get_offering_live_session: controlState,
-    launch_live_run: controlState, close_live_run: controlState,
+    launch_live_run: controlState, launch_live_set: controlState, close_live_run: controlState,
     set_live_run_visibility: controlState, moderate_live_response: controlState,
     set_live_run_paused: controlState, set_live_run_reveal: controlState, set_live_run_ranking: controlState,
     merge_live_term: controlState, end_live_session: controlState, reset_live_run: controlState, reset_live_session_results: controlState,
