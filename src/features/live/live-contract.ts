@@ -123,6 +123,12 @@ export const liveRpcInputSchemas = {
   }).strict(),
   get_projector_state: z.object({ p_code: code }).strict(),
   launch_live_set: z.object({ p_session_id: uuid, p_set_id: uuid }).strict(),
+  get_live_screen: sessionId,
+  set_live_screen: z.object({ p_session_id: uuid, p_mode: z.enum(['slides', 'activity', 'join']), p_slide: z.number().int().min(1).max(300) }).strict(),
+  get_lesson_presentation: lessonId,
+  save_lesson_presentation: z.object({ p_lesson_id: uuid, p_file_name: z.string().trim().min(1).max(200), p_folder: z.string().max(80),
+    p_page_count: z.number().int().min(1).max(300), p_aspect: z.number().min(0.3).max(4) }).strict(),
+  delete_lesson_presentation: lessonId,
 } as const
 
 export type LiveRpcName = keyof typeof liveRpcInputSchemas
@@ -130,6 +136,12 @@ export type LiveRpcInput<K extends LiveRpcName> = z.input<(typeof liveRpcInputSc
 
 const timestamp = z.iso.datetime({ offset: true })
 const count = z.number().int().nonnegative()
+export const presentationOutput = z.object({ file_name: z.string(), folder: z.string(), page_count: z.number().int().min(1),
+  aspect: z.number(), updated_at: timestamp }).strict()
+export const screenOutput = z.object({ mode: z.enum(['slides', 'activity', 'join']), slide: z.number().int().min(1),
+  updated_at: timestamp.nullable(), presentation: presentationOutput.nullable() }).strict()
+export type LiveScreen = z.output<typeof screenOutput>
+export type LessonPresentation = z.output<typeof presentationOutput>
 const activityOutput = z.object({
   id: uuid, set_id: uuid.nullable(), plan_item_id: uuid.nullable(), title: z.string().min(1).max(200),
   type: activityType, config, position: count,
@@ -203,6 +215,7 @@ const projectorStateOutput = z.object({
   session: z.object({ code, status: z.enum(['active', 'ended']) }).strict(),
   run: runOutput.nullable(),
   ranking: z.array(rankingEntry).max(5).optional(),
+  screen: screenOutput.optional(),
 }).strict()
 
 export const liveRpcOutputSchemas = {
@@ -232,6 +245,11 @@ export const liveRpcOutputSchemas = {
   submit_live_response: participantStateOutput,
   get_projector_state: projectorStateOutput,
   launch_live_set: controlStateOutput,
+  get_live_screen: screenOutput,
+  set_live_screen: screenOutput,
+  get_lesson_presentation: presentationOutput.nullable(),
+  save_lesson_presentation: presentationOutput,
+  delete_lesson_presentation: z.null(),
 } as const satisfies Record<LiveRpcName, z.ZodType>
 
 export type LiveRpcOutput<K extends LiveRpcName> = z.output<(typeof liveRpcOutputSchemas)[K]>

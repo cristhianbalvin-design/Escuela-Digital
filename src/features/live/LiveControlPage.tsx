@@ -8,10 +8,13 @@ import { useLessonPlan, useSessionPlan } from '@/features/planning/planning-api'
 import { LiveControlPanel, RunView } from './LiveControlPanel'
 import { useRoundCountdown } from './LiveSpecial'
 import { SessionNav } from './SessionNav'
+import { ScreenControl } from './LivePresentation'
+import { useLessonPresentation } from './presentation'
+import { liveRpc } from './live-api'
 import type { LiveRpcOutput } from './live-contract'
 import {
   useCloseLiveRun, useCreateLiveSession, useEndLiveSession, useLaunchLiveRun, useLaunchLiveSet, useLiveActivities, useLiveSets, useOfferingLiveSession,
-  useResetLiveRun, useResetLiveSessionResults, useSetLiveRunPaused, useSetLiveRunRanking, useSetLiveRunReveal, useSetLiveRunVisibility,
+  ping, useResetLiveRun, useResetLiveSessionResults, useSetLiveRunPaused, useSetLiveRunRanking, useSetLiveRunReveal, useSetLiveRunVisibility,
 } from './live-teacher-api'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -48,6 +51,7 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
   const plan = useLessonPlan(lessonId)
   const sessionPlan = useSessionPlan(offeringId, lessonId)
   const lessonActivities = useLiveActivities(lessonId)
+  const deck = useLessonPresentation(lessonId)
   const create = useCreateLiveSession(); const launch = useLaunchLiveRun(); const launchSet = useLaunchLiveSet(); const close = useCloseLiveRun()
   const visibility = useSetLiveRunVisibility(); const pause = useSetLiveRunPaused(); const reveal = useSetLiveRunReveal()
   const ranking = useSetLiveRunRanking(); const resetRun = useResetLiveRun(); const resetAll = useResetLiveSessionResults()
@@ -195,6 +199,12 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
           <ol aria-label={t('live.cockpit.steps')} className="flex flex-wrap gap-1.5 text-xs font-semibold">{chips.map((chip) =>
             <li key={chip.label} aria-current={chip.now ? 'step' : undefined} className={`rounded-full border px-2.5 py-1 ${chip.now ? 'border-brand bg-brand text-white' : chip.on ? 'border-brand text-brand' : 'border-border text-text-muted'}`}>{chip.label}</li>)}</ol>
         </div>
+
+        {active && live && <ScreenControl sessionId={live.id} code={live.code} presentation={deck.data ?? null}
+          latestRunOpenedAt={runs.reduce<string | null>((latest, run) => !latest || Date.parse(run.opened_at) > Date.parse(latest) ? run.opened_at : latest, null)} />}
+        {!session && deck.data && <Button variant="secondary" className="min-h-14 w-fit text-base" disabled={busy}
+          onClick={() => void act(async () => { const s = await ensureSession(); await liveRpc('set_live_screen', { p_session_id: s.id, p_mode: 'slides', p_slide: 1 }); void ping(s.code) })}>
+          {t('live.screen.startWithSlides')}</Button>}
 
         {current ? <>
           <h1 className="max-w-4xl text-3xl font-bold leading-tight sm:text-4xl">{current.title}</h1>

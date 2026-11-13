@@ -69,7 +69,7 @@ function useVisibleRefresh(sessionId: string, code: string | undefined, offering
   }, [cache, sessionId, code, offeringId])
 }
 
-async function ping(code: string) {
+export async function ping(code: string) {
   if (!supabase) return
   try {
     const channel = supabase.channel(`live:${code}`)
@@ -173,7 +173,8 @@ export function useLiveSessions(offeringId: string, lessonId: string) {
 type ControlMutation = Exclude<LiveRpcName,
   'get_live_activities' | 'save_live_activities' | 'get_live_control_state' | 'get_offering_live_session' | 'list_live_sessions' |
   'get_live_sets' | 'save_live_set' | 'delete_live_set' |
-  'join_live_session' | 'search_live_roster' | 'get_live_state' | 'submit_live_response' | 'get_projector_state'>
+  'join_live_session' | 'search_live_roster' | 'get_live_state' |
+  'get_live_screen' | 'set_live_screen' | 'get_lesson_presentation' | 'save_lesson_presentation' | 'delete_lesson_presentation' | 'submit_live_response' | 'get_projector_state'>
 
 function useControlMutation<K extends ControlMutation>(name: K) {
   const cache = useQueryClient()
@@ -203,3 +204,26 @@ export const useEndLiveSession = () => useControlMutation('end_live_session')
 export const useResetLiveRun = () => useControlMutation('reset_live_run')
 export const useResetLiveSessionResults = () => useControlMutation('reset_live_session_results')
 export const useLaunchLiveSet = () => useControlMutation('launch_live_set')
+
+export const liveScreenKey = (sessionId: string) => ['live', 'screen', sessionId] as const
+export function useLiveScreen(sessionId: string) {
+  return useQuery({
+    queryKey: liveScreenKey(sessionId), enabled: !!sessionId && !!supabase,
+    queryFn: () => liveRpc('get_live_screen', { p_session_id: sessionId }),
+    refetchInterval: () => document.hidden ? false : 5000,
+    retry: false,
+  })
+}
+export function useSetLiveScreen(code: string) {
+  const cache = useQueryClient()
+  return useMutation({
+    mutationFn: (input: LiveRpcInput<'set_live_screen'>) => liveRpc('set_live_screen', input),
+    onMutate: (input) => {
+      const previous = cache.getQueryData<LiveRpcOutput<'get_live_screen'>>(liveScreenKey(input.p_session_id))
+      if (previous) cache.setQueryData(liveScreenKey(input.p_session_id), { ...previous, mode: input.p_mode, slide: input.p_slide, updated_at: new Date().toISOString() })
+      return { previous }
+    },
+    onError: (_error, input, context) => { if (context?.previous) cache.setQueryData(liveScreenKey(input.p_session_id), context.previous) },
+    onSuccess: (screen, input) => { cache.setQueryData(liveScreenKey(input.p_session_id), screen); void ping(code) },
+  })
+}

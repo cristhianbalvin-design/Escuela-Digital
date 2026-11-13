@@ -6,6 +6,7 @@ import { useAuth } from '@/features/auth'
 import { useTenantAccess } from '@/features/tenants'
 import { ScriptEditor } from '@/features/planning/ScriptEditor'
 import { SessionScript } from '@/features/live/LiveSetPages'
+import { PresentationPanel } from '@/features/live/LivePresentation'
 import { LessonResources } from '@/features/resources'
 import { useCourse, useCourseAction } from './api'
 import { LessonEditor } from './CourseBuilderPage'
@@ -82,6 +83,7 @@ export function SessionPage() {
         onMove={() => undefined} />
       {lesson.type !== 'reading' && <LessonResources lessonId={lesson.id} tenantId={lesson.tenant_id} versionId={lesson.version_id} editable={editable || contentEditable} />}
     </div> : <div className="grid gap-4">
+      <PresentationPanel lessonId={lesson.id} editable={data.canEdit} />
       {data.canEdit && <Button className="w-fit" variant={editBlocks ? 'primary' : 'secondary'} onClick={() => setEditBlocks((value) => !value)}>
         {editBlocks ? t('sessions.doneBlocks') : t('sessions.editBlocks')}</Button>}
       {editBlocks

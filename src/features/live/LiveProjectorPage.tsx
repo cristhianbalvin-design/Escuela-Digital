@@ -6,6 +6,7 @@ import { useProjectorState } from './live-api'
 import { LiveResults } from './LiveResults'
 import { CompareResults, QuizDistribution, RankingList, useRoundCountdown } from './LiveSpecial'
 import { SafeMarkdown } from './SafeMarkdown'
+import { effectiveScreen, slideUrl } from './presentation'
 
 type Run = NonNullable<ReturnType<typeof useProjectorState>['data']>['run']
 function SpecialProjector({ run, ranking }: { run: NonNullable<Run>; ranking: NonNullable<ReturnType<typeof useProjectorState>['data']>['ranking'] }) {
@@ -45,6 +46,24 @@ export function LiveProjectorPage() {
   }, [code])
 
   const run = state.data?.run
+  const screen = state.data?.screen
+  const mode = state.data?.session.status === 'active' ? effectiveScreen(screen, run?.opened_at) : 'activity'
+  const deck = screen?.presentation
+  if (mode === 'slides' && deck && screen) {
+    const slide = Math.min(Math.max(1, screen.slide), deck.page_count)
+    return <main className="relative flex h-screen w-screen items-center justify-center overflow-hidden bg-black">
+      <img src={slideUrl(deck, slide)} alt={t('presentation.slideN', { number: slide })} className="max-h-full max-w-full object-contain" />
+      {slide < deck.page_count && <link rel="prefetch" href={slideUrl(deck, slide + 1)} />}
+      <p className="absolute bottom-3 right-4 rounded-full bg-black/70 px-4 py-1.5 text-base text-white">
+        {window.location.host}/clase · <span className="font-mono font-bold tracking-widest">{code}</span></p>
+    </main>
+  }
+  if (mode === 'join') return <main className="flex min-h-screen flex-col items-center justify-center gap-8 bg-[#0b1020] p-10 text-center text-white">
+    <p className="text-3xl font-semibold">{t('live.joinAt')}</p>
+    <p className="text-4xl">{window.location.host}/clase</p>
+    <p className="font-mono text-8xl font-black tracking-[0.2em] text-[#a5acff] md:text-9xl">{code}</p>
+    {qr && <img src={qr} alt={t('live.qrAlt', { code })} className="h-72 w-72 rounded-control bg-white p-3" />}
+  </main>
   const darkTokens = {
     '--surface': '#131a2e', '--surface-elevated': '#1b2440', '--border': '#2a3556',
     '--text': '#f1f5f9', '--text-muted': '#a3aecb', '--brand-primary': '#818cf8',
