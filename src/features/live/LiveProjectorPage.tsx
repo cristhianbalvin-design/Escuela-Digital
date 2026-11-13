@@ -1,7 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router-dom'
-import { isLiveCode } from './live-utils'
+import { isLiveCode, liveSearch } from './live-utils'
 import { useProjectorState } from './live-api'
 import { LiveResults } from './LiveResults'
 import { CompareResults, QuizDistribution, RankingList, useRoundCountdown } from './LiveSpecial'
@@ -37,7 +37,7 @@ export function LiveProjectorPage() {
   useEffect(() => {
     if (!isLiveCode(code)) return
     let active = true
-    const url = new URL(`/clase/${code}${window.location.search}`, window.location.origin).href
+    const url = new URL(`/clase/${code}${liveSearch()}`, window.location.origin).href
     void import('qrcode').then((module) => module.toDataURL(url, { width: 320, margin: 1 }))
       .then((image) => { if (active) setQr(image) })
       .catch(() => { if (active) setQrError(true) })

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { liveSearch } from './live-utils'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui'
 import { useAuth } from '@/features/auth'
@@ -94,7 +95,7 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
   const answered = current?.results.responses.length ?? 0
   const participants = state?.participant_count ?? 0
   const percent = participants ? Math.min(100, Math.round(answered * 100 / participants)) : 0
-  const link = relevant ? new URL(`/clase/${live!.code}${window.location.search}`, window.location.origin).href : ''
+  const link = relevant ? new URL(`/clase/${live!.code}${liveSearch()}`, window.location.origin).href : ''
 
   useEffect(() => {
     if (!link) { setQr(''); return }
@@ -166,7 +167,7 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
         <div><p className="text-xs uppercase tracking-wider text-text-muted">{t('live.cockpit.time')}</p><p className="text-xl font-bold"><Clock /></p></div>
       </div>
       <SessionNav lessonId={lessonId} offeringId={offeringId} current="teach" />
-      {relevant && <Button variant="secondary" onClick={() => window.open(`/clase/${live!.code}/proyector${window.location.search}`, '_blank', 'noopener,noreferrer')}>{t('live.openProjector')}</Button>}
+      {relevant && <Button variant="secondary" onClick={() => window.open(`/clase/${live!.code}/proyector${liveSearch()}`, '_blank', 'noopener,noreferrer')}>{t('live.openProjector')}</Button>}
       {active && <Button variant="destructive" disabled={busy} onClick={() => { if (window.confirm(t('live.confirmEnd'))) void act(() => end.mutateAsync({ p_session_id: live!.id })) }}>{t('live.endClass')}</Button>}
     </header>
 
@@ -251,7 +252,7 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
       <aside aria-label={t('live.cockpit.screens')} className="grid min-w-0 max-w-sm flex-[1_1_18rem] content-start gap-4 border-border p-4 lg:border-l">
         {relevant && <div className="grid gap-2">
           <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">{t('live.cockpit.projectorView')}</p>
-          <iframe title={t('live.cockpit.projectorView')} src={`/clase/${live!.code}/proyector${window.location.search}`} className="aspect-video w-full rounded-control border border-border" />
+          <iframe title={t('live.cockpit.projectorView')} src={`/clase/${live!.code}/proyector${liveSearch()}`} className="aspect-video w-full rounded-control border border-border" />
         </div>}
         {relevant && <div className="grid gap-3 rounded-control border border-border p-3">
           <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">{t('live.cockpit.join')}</p>

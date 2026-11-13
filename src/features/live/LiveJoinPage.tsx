@@ -28,6 +28,40 @@ function clearToken(code: string) {
 }
 
 type Run = NonNullable<LiveRpcOutput<'get_live_state'>['run']>
+type RosterMatch = LiveRpcOutput<'search_live_roster'>[number]
+
+/** Busca el nombre en la lista de matriculados de la edición; si no aparece, se usa el nombre escrito. */
+function RosterName({ code, name, setName, picked, setPicked }: {
+  code: string; name: string; setName: (value: string) => void; picked: RosterMatch | null; setPicked: (value: RosterMatch | null) => void
+}) {
+  const { t } = useTranslation()
+  const [matches, setMatches] = useState<RosterMatch[]>([])
+  const [searched, setSearched] = useState(false)
+  useEffect(() => {
+    const query = name.trim()
+    if (picked || query.length < 2) { setMatches([]); setSearched(false); return }
+    let active = true
+    const id = window.setTimeout(() => {
+      void liveRpc('search_live_roster', { p_code: code, p_query: query })
+        .then((rows) => { if (active) { setMatches(rows); setSearched(true) } })
+        .catch(() => { if (active) { setMatches([]); setSearched(true) } })
+    }, 250)
+    return () => { active = false; window.clearTimeout(id) }
+  }, [code, name, picked])
+  if (picked) return <div className="grid gap-2 rounded-control border border-brand bg-brand-soft p-3" role="status">
+    <p className="text-sm text-text-muted">{t('live.roster.youAre')}</p>
+    <p className="text-lg font-bold">{picked.name}</p>
+    <Button variant="secondary" className="w-fit" onClick={() => { setPicked(null); setName('') }}>{t('live.roster.notMe')}</Button>
+  </div>
+  return <div className="grid gap-2">
+    <Input label={t('live.roster.label')} value={name} maxLength={200} required autoComplete="off" placeholder={t('live.roster.placeholder')}
+      onChange={(event) => setName(event.target.value)} />
+    {matches.length > 0 && <ul className="grid gap-1" aria-label={t('live.roster.matches')}>{matches.map((match) => <li key={match.id}>
+      <button type="button" onClick={() => { setPicked(match); setName(match.name) }}
+        className="flex min-h-12 w-full items-center rounded-control border border-border bg-surface px-3 text-left font-semibold hover:border-brand">{match.name}</button></li>)}</ul>}
+    <p className="text-sm text-text-muted">{name.trim().length < 2 ? t('live.roster.hint') : searched && matches.length === 0 ? t('live.roster.none') : matches.length > 0 ? t('live.roster.pick') : ''}</p>
+  </div>
+}
 function LiveAnswer({ run, code, token, mine, onSaved }: {
   run: Run; code: string; token: string; mine: string | string[] | number | null; onSaved: () => void
 }) {
@@ -134,6 +168,7 @@ export function LiveJoinPage() {
   const [codeInput, setCodeInput] = useState('')
   const [token, setToken] = useState<string | null>(() => code ? readToken(code) : null)
   const [name, setName] = useState('')
+  const [picked, setPicked] = useState<RosterMatch | null>(null)
   const [company, setCompany] = useState('')
   const [needs, setNeeds] = useState({ name: false, company: false })
   const [joinError, setJoinError] = useState('')
@@ -166,7 +201,7 @@ export function LiveJoinPage() {
   async function join(event: FormEvent) {
     event.preventDefault(); setJoining(true); setJoinError('')
     try {
-      const joined = await liveRpc('join_live_session', { p_code: code, p_name: name.trim() || null, p_company: company.trim() || null })
+      const joined = await liveRpc('join_live_session', { p_code: code, p_name: name.trim() || null, p_company: company.trim() || null, p_student_id: picked?.id ?? null })
       saveToken(code, joined.token); setToken(joined.token)
     } catch (error) {
       const message = error instanceof Error ? error.message : ''
@@ -198,7 +233,7 @@ export function LiveJoinPage() {
     {!token && (needs.name || needs.company) && <Card className="space-y-4">
       <h2 className="text-xl font-semibold">{t('live.yourDetails')}</h2>
       <form onSubmit={(event) => void join(event)} className="space-y-4">
-        {needs.name && <Input label={t('live.name')} value={name} maxLength={200} required onChange={(event) => setName(event.target.value)} />}
+        {needs.name && <RosterName code={code} name={name} setName={setName} picked={picked} setPicked={setPicked} />}
         {needs.company && <Input label={t('live.company')} value={company} maxLength={200} required onChange={(event) => setCompany(event.target.value)} />}
         <Button type="submit" className="min-h-14 w-full" disabled={joining}>{t('live.enter')}</Button>
       </form></Card>}

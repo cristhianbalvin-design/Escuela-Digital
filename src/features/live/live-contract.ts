@@ -113,7 +113,8 @@ export const liveRpcInputSchemas = {
   list_live_sessions: z.object({ p_offering_id: uuid, p_lesson_id: uuid }).strict(),
   reset_live_run: runId,
   reset_live_session_results: sessionId,
-  join_live_session: z.object({ p_code: code, p_name: z.string().max(200).nullable(), p_company: z.string().max(200).nullable() }).strict(),
+  join_live_session: z.object({ p_code: code, p_name: z.string().max(200).nullable(), p_company: z.string().max(200).nullable(), p_student_id: uuid.nullable().optional() }).strict(),
+  search_live_roster: z.object({ p_code: code, p_query: z.string().min(2).max(80) }).strict(),
   get_live_state: z.object({ p_code: code, p_token: token }).strict(),
   submit_live_response: z.object({
     p_code: code, p_token: token, p_run_id: uuid,
@@ -226,6 +227,7 @@ export const liveRpcOutputSchemas = {
   reset_live_run: controlStateOutput,
   reset_live_session_results: controlStateOutput,
   join_live_session: z.object({ token, state: participantStateOutput }).strict(),
+  search_live_roster: z.array(z.object({ id: uuid, name: z.string() }).strict()).max(8),
   get_live_state: participantStateOutput,
   submit_live_response: participantStateOutput,
   get_projector_state: projectorStateOutput,

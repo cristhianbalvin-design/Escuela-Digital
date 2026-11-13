@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui'
-import { normalizeTerm } from './live-utils'
+import { normalizeTerm, liveSearch } from './live-utils'
 import { termsToMerge, type LiveWordcloudGroup } from './live-ai'
 import type { LiveRpcOutput } from './live-contract'
 import { LiveResults } from './LiveResults'
@@ -96,7 +96,7 @@ export function LiveControlPanel({ offeringId, lessonId, launchPlanItemId, embed
   const openRun = state?.runs.find((run) => run.status === 'open')
   const activities = relevant ? state?.activities ?? [] : lessonActivities.data ?? []
   const groups = groupLiveActivities(activities, plan.data?.items ?? [], launchPlanItemId)
-  const link = session ? new URL(`/clase/${session.code}${window.location.search}`, window.location.origin).href : ''
+  const link = session ? new URL(`/clase/${session.code}${liveSearch()}`, window.location.origin).href : ''
 
   useEffect(() => {
     if (!link) return
@@ -196,7 +196,7 @@ export function LiveControlPanel({ offeringId, lessonId, launchPlanItemId, embed
       {!relevant && <p role="status">{t('live.otherLessonActive')}</p>}
       <div className="flex flex-wrap items-center gap-4"><div><p>{t('live.code')}</p><p className="font-mono text-4xl font-bold tracking-widest text-brand" aria-live="polite">{session.code}</p></div>{qr && <img src={qr} className="size-32 rounded-control bg-white p-1" alt={t('live.qrAlt', { code: session.code })} />}{qrError && <p role="status">{t('live.qrError')}</p>}</div>
       <p className="break-all"><a className="text-brand underline" href={link} target="_blank" rel="noopener noreferrer">{link}</a></p>
-      <div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => void navigator.clipboard.writeText(link).then(() => setMessage(t('live.linkCopied'))).catch(() => setMessage(t('live.copyError')))}>{t('live.copyLink')}</Button><Button variant="secondary" onClick={() => window.open(`/clase/${session.code}/proyector${window.location.search}`, '_blank', 'noopener,noreferrer')}>{t('live.openProjector')}</Button></div>
+      <div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => void navigator.clipboard.writeText(link).then(() => setMessage(t('live.linkCopied'))).catch(() => setMessage(t('live.copyError')))}>{t('live.copyLink')}</Button><Button variant="secondary" onClick={() => window.open(`/clase/${session.code}/proyector${liveSearch()}`, '_blank', 'noopener,noreferrer')}>{t('live.openProjector')}</Button></div>
       <p aria-live="polite">{t('live.connected', { count: state?.participant_count ?? 0 })}</p>
       {active && session && <Button variant="secondary" className="w-fit" disabled={resetAll.isPending} onClick={() => { if (window.confirm(t('live.confirmResetAll'))) void act(() => resetAll.mutateAsync({ p_session_id: session.id })) }}>{t('live.resetAll')}</Button>}
       {active && <Button variant="destructive" className="w-fit" disabled={end.isPending} onClick={() => void finish()}>{t('live.endClass')}</Button>}

@@ -215,3 +215,9 @@ export function weightedScore(options: { id: string; score?: number }[], rows: {
   const level = ratio < .25 ? 'initial' : ratio < .5 ? 'basic' : ratio < .75 ? 'intermediate' : ratio < .9 ? 'advanced' : 'leader'
   return { average, max, level }
 }
+
+/** Sólo el parámetro de escuela viaja en los enlaces de la clase; el resto ensucia el QR. */
+export function liveSearch(search: string = typeof window === 'undefined' ? '' : window.location.search): string {
+  const tenant = new URLSearchParams(search).get('tenant')
+  return tenant ? `?tenant=${encodeURIComponent(tenant)}` : ''
+}

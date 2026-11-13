@@ -173,7 +173,7 @@ export function useLiveSessions(offeringId: string, lessonId: string) {
 type ControlMutation = Exclude<LiveRpcName,
   'get_live_activities' | 'save_live_activities' | 'get_live_control_state' | 'get_offering_live_session' | 'list_live_sessions' |
   'get_live_sets' | 'save_live_set' | 'delete_live_set' |
-  'join_live_session' | 'get_live_state' | 'submit_live_response' | 'get_projector_state'>
+  'join_live_session' | 'search_live_roster' | 'get_live_state' | 'submit_live_response' | 'get_projector_state'>
 
 function useControlMutation<K extends ControlMutation>(name: K) {
   const cache = useQueryClient()
