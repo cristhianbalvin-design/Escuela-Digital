@@ -4,12 +4,21 @@ import { initReactI18next } from 'react-i18next'
 export const resources = {
   es: {
     translation: {
+      script: {
+        newBlock: 'Nuevo bloque', start: 'Inicio de la sesión', import: 'Importar desde tabla', timeline: 'Línea de tiempo de la sesión',
+        total: '{{minutes}} min planificados', blocks: 'Bloques del guion', time: 'Hora', block: 'Bloque', min: 'Min',
+        addEnd: 'Agregar bloque al final', hint: 'Arrastra las filas para reordenar: las horas se recalculan solas. Haz clic en un bloque para editarlo.',
+        readonly: 'Solo lectura.', detail: 'Detalle del bloque', blockN: 'Bloque {{number}}', close: 'Cerrar detalle', name: 'Nombre del bloque',
+        minutes: 'Minutos', auto: 'automática', notes: 'Notas para el docente', duplicate: 'Duplicar', addBelow: 'Bloque debajo',
+        confirmDelete: '¿Eliminar este bloque? Sus actividades quedarán sin bloque.', pending: 'Cambios sin guardar…', saving: 'Guardando…',
+        saved: 'Cambios guardados', invalid: 'Hay un bloque sin nombre: complétalo para guardar.', noFiles: 'Sin archivos de apoyo.',
+      },
       sessions: {
         number: 'Sesión {{number}}', reading: 'Contenido', typeQuiz: 'Evaluación', typeAssignment: 'Tarea',
         blocks_one: 'Guion · {{count}} bloque', blocks_other: 'Guion · {{count}} bloques', noScript: 'Sin guion',
         activities_one: '{{count}} actividad', activities_other: '{{count}} actividades', noActivities: 'Sin actividades',
         notFound: 'No se encontró la sesión.', breadcrumb: 'Ubicación', previous: 'Sesión anterior', parts: 'Partes de la sesión',
-        tabContent: 'Contenido para alumnos', tabScript: 'Guion de la clase', editBlocks: 'Editar bloques del guion', doneBlocks: 'Volver al guion',
+        tabContent: 'Contenido para alumnos', tabScript: 'Guion de la clase', editBlocks: 'Editar bloques del guion', doneBlocks: 'Listo, volver al guion',
       },
       sets: {
         kinds: { survey: 'Encuesta', static_quiz: 'Cuestionario estático', dynamic_quiz: 'Cuestionario dinámico', dynamic_formative: 'Clasificar casos', compare: 'Evaluación ciega', opportunity: 'Mapa de oportunidades' },
@@ -1284,12 +1293,21 @@ export const resources = {
   },
   en: {
     translation: {
+      script: {
+        newBlock: 'New block', start: 'Session start', import: 'Import from table', timeline: 'Session timeline',
+        total: '{{minutes}} min planned', blocks: 'Script blocks', time: 'Time', block: 'Block', min: 'Min',
+        addEnd: 'Add block at the end', hint: 'Drag rows to reorder: times recalculate automatically. Click a block to edit it.',
+        readonly: 'Read only.', detail: 'Block detail', blockN: 'Block {{number}}', close: 'Close detail', name: 'Block name',
+        minutes: 'Minutes', auto: 'automatic', notes: 'Teacher notes', duplicate: 'Duplicate', addBelow: 'Block below',
+        confirmDelete: 'Delete this block? Its activities will be left without a block.', pending: 'Unsaved changes…', saving: 'Saving…',
+        saved: 'Changes saved', invalid: 'A block has no name: fill it in to save.', noFiles: 'No supporting files.',
+      },
       sessions: {
         number: 'Session {{number}}', reading: 'Content', typeQuiz: 'Assessment', typeAssignment: 'Assignment',
         blocks_one: 'Script · {{count}} block', blocks_other: 'Script · {{count}} blocks', noScript: 'No script',
         activities_one: '{{count}} activity', activities_other: '{{count}} activities', noActivities: 'No activities',
         notFound: 'Session not found.', breadcrumb: 'Location', previous: 'Previous session', parts: 'Session parts',
-        tabContent: 'Student content', tabScript: 'Class script', editBlocks: 'Edit script blocks', doneBlocks: 'Back to script',
+        tabContent: 'Student content', tabScript: 'Class script', editBlocks: 'Edit script blocks', doneBlocks: 'Done, back to script',
       },
       sets: {
         kinds: { survey: 'Survey', static_quiz: 'Self-paced quiz', dynamic_quiz: 'Live quiz', dynamic_formative: 'Classify cases', compare: 'Blind evaluation', opportunity: 'Opportunity map' },

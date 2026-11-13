@@ -4,7 +4,7 @@ import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { Button, Card, EmptyState, Skeleton, useToast } from '@/components/ui'
 import { useAuth } from '@/features/auth'
 import { useTenantAccess } from '@/features/tenants'
-import { PlanEditor } from '@/features/planning/Planning'
+import { ScriptEditor } from '@/features/planning/ScriptEditor'
 import { SessionScript } from '@/features/live/LiveSetPages'
 import { LessonResources } from '@/features/resources'
 import { useCourse, useCourseAction } from './api'
@@ -85,7 +85,7 @@ export function SessionPage() {
       {data.canEdit && <Button className="w-fit" variant={editBlocks ? 'primary' : 'secondary'} onClick={() => setEditBlocks((value) => !value)}>
         {editBlocks ? t('sessions.doneBlocks') : t('sessions.editBlocks')}</Button>}
       {editBlocks
-        ? <PlanEditor lessonId={lesson.id} tenantId={lesson.tenant_id} editable={data.canEdit} />
+        ? <ScriptEditor lessonId={lesson.id} tenantId={lesson.tenant_id} editable={data.canEdit} />
         : <SessionScript lessonId={lesson.id} base={`${courseBase}/sesiones/${lesson.id}`} editable={data.canEdit} />}
     </div>}
   </section>
