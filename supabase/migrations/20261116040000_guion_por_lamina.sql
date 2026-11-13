@@ -54,3 +54,6 @@ end $$;
 
 revoke all on function public.get_slide_notes(uuid), public.save_slide_notes(uuid, jsonb) from public, anon;
 grant execute on function public.get_slide_notes(uuid), public.save_slide_notes(uuid, jsonb) to authenticated;
+
+-- Láminas a 3840 px: margen para imágenes de hasta 15 MB.
+update storage.buckets set file_size_limit = 15728640 where id = 'presentations';

@@ -6,6 +6,7 @@ import { useLessonPlan } from '@/features/planning/planning-api'
 import type { LiveRpcInput, LiveRpcOutput, LiveSetKind } from './live-contract'
 import type { LiveType } from './live-utils'
 import { LiveActivityEditor } from './LiveActivityEditor'
+import { NotesField } from './LiveNotes'
 import { useDeleteLiveSet, useLiveActivities, useLiveSets, useSaveLiveActivities, useSaveLiveSet } from './live-teacher-api'
 
 type Sets = LiveRpcOutput<'get_live_sets'>
@@ -201,6 +202,13 @@ export function ActivityPage() {
           <span className="text-sm text-text-muted">+ {t('sets.addQuestion')}:</span>
           {allowed.map((type) => <Link key={type} to={question('nueva', `tipo=${type}`)} className="inline-flex min-h-11 items-center rounded-control border border-dashed border-border px-3.5 text-sm hover:border-brand">{t(`live.types.${type}`)}</Link>)}
         </div>}
+        <section aria-label={t('live.notes.title')} className="mt-2 grid gap-4 rounded-control border border-border bg-surface-elevated p-4">
+          <div><h2 className="font-semibold">{t('live.notes.title')}</h2>
+            <p className="text-sm text-text-muted">{t('live.notes.hint')}</p></div>
+          <NotesField lessonId={lessonId} targetId={set.id} label={t('live.notes.activity')} tall />
+          {!single(set.kind) && questions.map((item, index) => <NotesField key={item.id} lessonId={lessonId} targetId={item.id}
+            label={`${t('live.notes.question')} ${index + 1} · ${item.title || t('sets.untitled')}`} />)}
+        </section>
       </div>
       <aside className="grid min-w-0 max-w-sm flex-[1_1_18rem] gap-3">
         <Card className="grid gap-3">

@@ -9,6 +9,7 @@ import { LiveControlPanel, RunView } from './LiveControlPanel'
 import { useRoundCountdown } from './LiveSpecial'
 import { SessionNav } from './SessionNav'
 import { ScreenControl } from './LivePresentation'
+import { TeacherNotesAside } from './LiveNotes'
 import { useLessonPresentation } from './presentation'
 import { liveRpc } from './live-api'
 import type { LiveRpcOutput } from './live-contract'
@@ -107,6 +108,8 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
     : launch.mutateAsync({ p_session_id: sessionId, p_activity_id: next!.id })
   const nextBlock = blocks.find((block) => block.id !== selectedId && pendingIn(block.id) > 0
     && blocks.indexOf(block) > blocks.findIndex((item) => item.id === selectedId))
+  const noteItem = (current ? activities.find((item) => item.id === current.activity_id) : undefined) ?? next ?? null
+  const noteSet = noteItem ? setsQuery.data?.find((set) => set.id === noteItem.set_id) : undefined
   const currentSetId = current ? activities.find((item) => item.id === current.activity_id)?.set_id ?? null : null
   const currentSet = setsQuery.data?.find((set) => set.id === currentSetId)
   const setQuestions = blockActs.filter((item) => item.set_id === currentSetId)
@@ -225,6 +228,8 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
           onClick={() => void act(async () => { const s = await ensureSession(); await liveRpc('set_live_screen', { p_session_id: s.id, p_mode: 'slides', p_slide: 1 }); void ping(s.code) })}>
           {t('live.screen.startWithSlides')}</Button>}
 
+        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(16rem,24rem)]">
+        <div className="grid min-w-0 content-start gap-5">
         {current ? <>
           <h1 className="max-w-4xl text-3xl font-bold leading-tight sm:text-4xl">{current.title}</h1>
           {current.status === 'open' && <div className="flex flex-wrap items-center gap-5 rounded-control border border-border bg-surface-elevated p-4">
@@ -268,6 +273,11 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
               </div>}
             </div>
           </details>}
+        </div>
+
+        </div>
+        {noteItem && <TeacherNotesAside lessonId={lessonId} setId={noteItem.set_id} setTitle={noteSet?.title ?? null}
+          questionId={current?.type === 'static_quiz' ? null : noteItem.id} questionTitle={current?.type === 'static_quiz' ? null : noteItem.title} />}
         </div>
 
         {current && <RunView run={current} participantCount={participants} hideTitle />}
