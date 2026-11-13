@@ -38,7 +38,7 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
   const { t } = useTranslation()
   const [picked, setPicked] = useState<string | null>(initialItem)
   const [accessMode, setAccessMode] = useState<'enrolled' | 'guest' | 'both'>('both')
-  const [askName, setAskName] = useState(false)
+  const [askName, setAskName] = useState(true)
   const [askCompany, setAskCompany] = useState(false)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
@@ -204,19 +204,12 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
               <progress className="w-full" max={100} value={percent} aria-label={t('live.responseProgress')} />
             </div>
           </div>}
-          <RunView run={current} participantCount={participants} hideTitle />
         </> : <div className="grid gap-2">
           <h1 className="text-3xl font-bold">{selected?.title ?? ''}</h1>
           <p className="text-text-muted">{blockActs.length === 0 ? t('live.blockEmpty') : t('live.cockpit.ready', { count: blockActs.length })}</p>
-          {!session && <div className="mt-2 grid gap-2 rounded-control border border-border p-3 sm:grid-cols-3">
-            <label className="grid gap-1 text-sm">{t('live.accessMode')}<select className="rounded-control border border-border bg-surface p-2" value={accessMode} onChange={(event) => setAccessMode(event.target.value as typeof accessMode)}>
-              <option value="both">{t('live.accessBoth')}</option><option value="enrolled">{t('live.accessEnrolled')}</option><option value="guest">{t('live.accessGuest')}</option></select></label>
-            <label className="flex items-center gap-2"><input type="checkbox" checked={askName} onChange={(event) => setAskName(event.target.checked)} />{t('live.askName')}</label>
-            <label className="flex items-center gap-2"><input type="checkbox" checked={askCompany} onChange={(event) => setAskCompany(event.target.checked)} />{t('live.askCompany')}</label>
-          </div>}
         </div>}
 
-        <div className="mt-auto grid gap-3 rounded-control border border-border bg-surface-elevated p-4">
+        <div className="grid gap-3 rounded-control border border-border bg-surface-elevated p-4">
           <div className="flex flex-wrap items-stretch gap-3">
             {primary ? <Button className="min-h-16 flex-[1_1_18rem] text-lg font-bold" disabled={busy} onClick={primary.run}>{primary.label}</Button>
               : <p className="flex min-h-16 flex-[1_1_18rem] items-center font-semibold">{relevant && !active ? t('live.ended') : t('live.cockpit.allDone')}</p>}
@@ -230,7 +223,24 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
           </div>}
           {next && current && <p className="text-sm text-text-muted">{t('live.cockpit.after', { title: nextTitle })}</p>}
           {message && <p role="alert">{message}</p>}
+          {!session && <details className="text-sm">
+            <summary className="cursor-pointer text-text-muted">{t('live.cockpit.accessOptions')} · {t(accessMode === 'both' ? 'live.accessBoth' : accessMode === 'enrolled' ? 'live.accessEnrolled' : 'live.accessGuest')}{askName ? ` · ${t('live.cockpit.nameRequired')}` : ''}</summary>
+            <div className="mt-3 grid gap-3">
+              <fieldset className="grid gap-2"><legend className="mb-1 font-semibold">{t('live.cockpit.whoJoins')}</legend>
+                {(['both', 'enrolled', 'guest'] as const).map((mode) => <label key={mode} className={`flex cursor-pointer items-start gap-3 rounded-control border p-3 ${accessMode === mode ? 'border-brand bg-brand-soft' : 'border-border'}`}>
+                  <input type="radio" name="access-mode" className="mt-1" checked={accessMode === mode} onChange={() => setAccessMode(mode)} />
+                  <span><span className="block font-semibold">{t(mode === 'both' ? 'live.accessBoth' : mode === 'enrolled' ? 'live.accessEnrolled' : 'live.accessGuest')}{mode === 'both' ? ` · ${t('live.cockpit.recommended')}` : ''}</span>
+                    <span className="block text-text-muted">{t(`live.cockpit.accessHelp.${mode}`)}</span></span></label>)}
+              </fieldset>
+              {accessMode !== 'enrolled' && <div className="grid gap-2">
+                <label className="flex items-center gap-2"><input type="checkbox" checked={askName} onChange={(event) => setAskName(event.target.checked)} />{t('live.askName')}</label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={askCompany} onChange={(event) => setAskCompany(event.target.checked)} />{t('live.askCompany')}</label>
+              </div>}
+            </div>
+          </details>}
         </div>
+
+        {current && <RunView run={current} participantCount={participants} hideTitle />}
 
         {selectedId && <details className="rounded-control border border-border p-3">
           <summary className="cursor-pointer font-semibold">{t('live.cockpit.tools')}</summary>
