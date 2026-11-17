@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
+import { decodeNotesEntities, SafeMarkdown } from './SafeMarkdown'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui'
 import type { LessonPresentation, LiveScreen } from './live-contract'
@@ -145,8 +147,9 @@ function isTyping(target: EventTarget | null) {
 }
 
 /** Dictar: decide qué ve el proyector y maneja la presentación con libertad. */
-export function ScreenControl({ sessionId, lessonId, code, latestRunOpenedAt, presentation }: {
+export function ScreenControl({ sessionId, lessonId, code, latestRunOpenedAt, presentation, toolbar, activityStage }: {
   sessionId: string; lessonId: string; code: string; latestRunOpenedAt: string | null; presentation: LessonPresentation | null
+  toolbar: ReactNode; activityStage: ReactNode
 }) {
   const { t } = useTranslation()
   const notes = useSlideNotes(lessonId)
@@ -177,47 +180,43 @@ export function ScreenControl({ sessionId, lessonId, code, latestRunOpenedAt, pr
   })
 
   const segment = (value: LiveScreen['mode'], label: string, disabled = false) => <button type="button" aria-pressed={mode === value} disabled={disabled}
-    onClick={() => go(value)} className={`min-h-11 rounded-control px-4 text-sm font-semibold disabled:opacity-50 ${mode === value ? 'bg-brand text-white' : 'text-text-muted hover:text-text'}`}>{label}</button>
+    onClick={() => go(value)} className={`min-h-11 rounded-control px-4 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand disabled:opacity-50 ${mode === value ? 'bg-brand text-white' : 'text-text-muted hover:text-text'}`}>{label}</button>
 
-  return <section aria-label={t('live.screen.title')} className="grid gap-3 rounded-control border border-border bg-surface-elevated p-4">
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <p className="text-xs font-bold uppercase tracking-wide text-text-muted">{t('live.screen.title')}</p>
-      <div role="group" aria-label={t('live.screen.title')} className="inline-flex flex-wrap gap-1 rounded-control border border-border bg-surface p-1">
+  const slideNotes = notes.data?.find((item) => item.slide === slide)?.notes
+  return <section aria-label={t('live.screen.title')} className="flex min-h-0 flex-1 flex-col gap-2">
+    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border pb-2">
+      <div role="group" aria-label={t('live.screen.title')} className="inline-flex gap-1 rounded-control border border-border bg-surface p-1">
         {segment('slides', t('live.screen.slides'), !deck)}
         {segment('activity', t('live.screen.activity'))}
         {segment('join', t('live.screen.join'))}
       </div>
+      {toolbar}
     </div>
     {!deck && <p className="text-sm text-text-muted">{t('live.screen.noDeck')}</p>}
-    {mode === 'slides' && deck && <div className="grid gap-3">
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(16rem,2fr)]">
-        <img src={slideUrl(deck, slide)} alt={t('presentation.slideN', { number: slide })} className="mx-auto max-h-[56vh] w-auto max-w-full rounded-control border-2 border-brand bg-white" />
-        <aside aria-label={t('presentation.notes.label')} className="grid content-start gap-3">
-          <div className="rounded-control border border-border bg-surface p-4">
-            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-text-muted">{t('presentation.notes.forSlide', { number: slide })}</p>
-            {notes.data?.find((item) => item.slide === slide)?.notes
-              ? <p className="max-h-[42vh] overflow-y-auto whitespace-pre-wrap text-lg leading-relaxed">{notes.data.find((item) => item.slide === slide)!.notes}</p>
-              : <p className="text-sm text-text-muted">{t('presentation.notes.noneForSlide')}</p>}
-          </div>
-          {slide < pages && <div className="grid gap-1">
-            <p className="text-xs font-bold uppercase tracking-wide text-text-muted">{t('presentation.notes.nextSlide')}</p>
-            <Thumb deck={deck} slide={slide + 1} alt={t('presentation.slideN', { number: slide + 1 })} className="w-48 rounded border border-border bg-white" />
-          </div>}
+    {mode === 'slides' && deck && <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <div className="grid min-h-0 flex-1 gap-3 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <div className="flex min-h-0 items-center justify-center overflow-hidden rounded-control bg-black">
+          <img src={slideUrl(deck, slide)} alt={t('presentation.slideN', { number: slide })} className="aspect-video max-h-full w-full object-contain" />
+        </div>
+        <aside aria-label={t('presentation.notes.label')} className="min-h-0 overflow-y-auto rounded-control border border-border bg-surface p-4">
+          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-text-muted">{t('presentation.notes.forSlide', { number: slide })}</p>
+          {slideNotes ? <div className="text-lg leading-relaxed"><SafeMarkdown source={decodeNotesEntities(slideNotes)} /></div>
+            : <p className="text-lg text-text-muted">{t('presentation.notes.noneForSlide')}</p>}
         </aside>
       </div>
       {slide < pages && <link rel="prefetch" href={slideUrl(deck, slide + 1)} />}
-      <div className="flex items-center gap-3">
-        <Button variant="secondary" className="min-h-14 min-w-14 text-xl" aria-label={t('live.screen.previous')} disabled={slide <= 1} onClick={() => go('slides', slide - 1)}>◀</Button>
-        <div className="flex-1 text-center"><p className="text-xl font-bold tabular-nums">{t('live.screen.position', { number: slide, total: pages })}</p>
-          <p className="text-xs text-text-muted">{t('live.screen.keys')}</p></div>
-        <Button className="min-h-14 min-w-14 text-xl" aria-label={t('live.screen.next')} disabled={slide >= pages} onClick={() => go('slides', slide + 1)}>▶</Button>
+      <div className="flex shrink-0 items-center gap-2">
+        <Button variant="secondary" className="min-h-11 min-w-14 text-xl" aria-label={t('live.screen.previous')} disabled={slide <= 1} onClick={() => go('slides', slide - 1)}>&#9664;</Button>
+        <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto" aria-label={t('live.screen.all')}>{Array.from({ length: pages }, (_, i) => i + 1).map((n) =>
+          <button key={n} type="button" onClick={() => go('slides', n)} aria-label={t('presentation.slideN', { number: n })} aria-current={n === slide ? 'true' : undefined}
+            className={`min-h-11 shrink-0 rounded border-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand ${n === slide ? 'border-brand' : 'border-transparent'}`}>
+            <Thumb deck={deck} slide={n} className="h-10 w-auto rounded bg-white" /></button>)}</div>
+        <span className="shrink-0 text-sm font-bold tabular-nums">{t('live.screen.position', { number: slide, total: pages })}</span>
+        <Button className="min-h-11 min-w-14 text-xl" aria-label={t('live.screen.next')} disabled={slide >= pages} onClick={() => go('slides', slide + 1)}>&#9654;</Button>
       </div>
-      <div className="flex gap-1 overflow-x-auto pb-1" aria-label={t('live.screen.all')}>{Array.from({ length: pages }, (_, i) => i + 1).map((n) =>
-        <button key={n} type="button" onClick={() => go('slides', n)} aria-label={t('presentation.slideN', { number: n })} aria-current={n === slide ? 'true' : undefined}
-          className={`shrink-0 rounded border-2 ${n === slide ? 'border-brand' : 'border-transparent'}`}>
-          <Thumb deck={deck} slide={n} className="h-12 w-auto rounded bg-white" /></button>)}</div>
     </div>}
-    {mode !== 'slides' && deck && <Button variant="secondary" className="w-fit" onClick={() => go('slides')}>◀ {t('live.screen.back', { number: slide })}</Button>}
+    {mode === 'activity' && <div className="min-h-0 flex-1">{activityStage}</div>}
+    {mode === 'join' && <div className="flex min-h-0 flex-1 items-center justify-center text-lg text-text-muted">{t('live.cockpit.join')}</div>}
     {error && <p role="alert" className="text-sm">{error}</p>}
   </section>
 }

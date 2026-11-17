@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { liveRpc } from './live-api'
+import { decodeNotesEntities, SafeMarkdown } from './SafeMarkdown'
 
 export const liveNotesKey = (lessonId: string) => ['live-notes', lessonId] as const
 export function useLiveNotes(lessonId: string) {
@@ -64,16 +65,16 @@ export function TeacherNotesAside({ lessonId, setId, setTitle, questionId, quest
   const find = (id: string | null) => id ? query.data?.find((item) => item.target_id === id)?.notes ?? '' : ''
   const setNotes = find(setId)
   const questionNotes = questionId !== setId ? find(questionId) : ''
-  return <aside aria-label={t('live.notes.title')} className="grid content-start gap-3 rounded-control border border-border bg-surface p-4">
+  return <aside aria-label={t('live.notes.title')} className="min-h-0 overflow-y-auto rounded-control border border-border bg-surface p-4">
     <p className="text-xs font-bold uppercase tracking-wide text-text-muted">{t('live.notes.title')}</p>
     {!setNotes && !questionNotes && <p className="text-sm text-text-muted">{t('live.notes.none')}</p>}
     {setNotes && <div className="grid gap-1">
       {setTitle && <p className="text-sm font-semibold">{setTitle}</p>}
-      <p className="max-h-[40vh] overflow-y-auto whitespace-pre-wrap text-lg leading-relaxed">{setNotes}</p>
+      <div className="text-lg leading-relaxed"><SafeMarkdown source={decodeNotesEntities(setNotes)} /></div>
     </div>}
     {questionNotes && <div className="grid gap-1 border-t border-border pt-3">
       <p className="text-sm font-semibold">{t('live.notes.question')}{questionTitle ? ` · ${questionTitle}` : ''}</p>
-      <p className="max-h-[30vh] overflow-y-auto whitespace-pre-wrap text-lg leading-relaxed">{questionNotes}</p>
+      <div className="text-lg leading-relaxed"><SafeMarkdown source={decodeNotesEntities(questionNotes)} /></div>
     </div>}
   </aside>
 }

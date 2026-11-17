@@ -7,6 +7,11 @@ function inline(text: string): ReactNode[] {
       part.startsWith('`') && part.endsWith('`') ? <code key={index} className="rounded bg-brand-soft px-1">{part.slice(1, -1)}</code> : part)
 }
 
+export function decodeNotesEntities(source: string): string {
+  const entities: Record<string, string> = { '&gt;': '>', '&lt;': '<', '&amp;': '&', '&quot;': '"', '&#39;': "'" }
+  return source.replace(/&(?:gt|lt|amp|quot);|&#39;/g, (entity) => entities[entity] ?? entity)
+}
+
 export function SafeMarkdown({ source }: { source: string }) {
   return <div className="space-y-3 break-words">{parseSafeMarkdown(source).map((block, index) => {
     if (block.kind === 'heading') {
@@ -18,6 +23,9 @@ export function SafeMarkdown({ source }: { source: string }) {
       return <Tag key={index} className={block.ordered ? 'list-decimal pl-6' : 'list-disc pl-6'}>{block.items.map((item, itemIndex) => <li key={itemIndex}>{inline(item)}</li>)}</Tag>
     }
     if (block.kind === 'table') return <div key={index} className="overflow-x-auto"><table className="w-full border-collapse text-left"><thead><tr>{block.rows[0]?.map((cell, cellIndex) => <th key={cellIndex} className="border border-border p-2">{inline(cell)}</th>)}</tr></thead><tbody>{block.rows.slice(1).map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, cellIndex) => <td key={cellIndex} className="border border-border p-2">{inline(cell)}</td>)}</tr>)}</tbody></table></div>
+    if (block.lines.some((line) => /^\s*>/.test(line))) return <div key={index}>{block.lines.map((line, lineIndex) => /^\s*>/.test(line)
+      ? <blockquote key={lineIndex} className="border-l-4 border-brand pl-4">{inline(line.replace(/^\s*>\s?/, ''))}</blockquote>
+      : <p key={lineIndex}>{inline(line)}</p>)}</div>
     return <p key={index}>{block.lines.map((line, lineIndex) => <span key={lineIndex}>{lineIndex > 0 && <br />}{inline(line)}</span>)}</p>
   })}</div>
 }
