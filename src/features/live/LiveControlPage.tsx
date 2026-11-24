@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { liveSearch } from './live-utils'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui'
 import { useAuth } from '@/features/auth'
-import { useLessonPlan, useSessionPlan } from '@/features/planning/planning-api'
+import { useLessonPlan, usePlanProgress, useSessionPlan } from '@/features/planning/planning-api'
 import { LiveControlPanel, RunView } from './LiveControlPanel'
 import { useRoundCountdown } from './LiveSpecial'
 import { SessionNav } from './SessionNav'
@@ -53,7 +53,8 @@ function ProjectorPreview({ title, src }: { title: string; src: string }) {
 
 /** Momento 2 · Dictar: guion a la izquierda, un paso principal al centro, proyector y acceso a la derecha. */
 function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; lessonId: string; initialItem: string | null }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const navigate = useNavigate()
   const [picked, setPicked] = useState<string | null>(initialItem)
   const [accessMode, setAccessMode] = useState<'enrolled' | 'guest' | 'both'>('both')
   const [askName, setAskName] = useState(true)
@@ -75,6 +76,13 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
   const session = state?.session
   const live = session && session.lesson_id === lessonId ? session : null
   const relevant = !!live
+  const otherSession = session && !relevant ? session : null
+  const progress = usePlanProgress(otherSession ? offeringId : undefined)
+  const otherLessonTitle = progress.data?.find((item) => item.lesson_id === otherSession?.lesson_id)?.lesson_title || otherSession?.lesson_id
+  const elapsedMinutes = otherSession ? Math.max(0, Math.floor((Date.now() - Date.parse(otherSession.created_at)) / 60000)) : 0
+  const stale = !!otherSession && Date.now() - Date.parse(otherSession.created_at) > 6 * 60 * 60 * 1000
+  const relativeTime = new Intl.RelativeTimeFormat(i18n.resolvedLanguage, { numeric: 'auto' }).format(
+    elapsedMinutes >= 60 ? -Math.floor(elapsedMinutes / 60) : -elapsedMinutes, elapsedMinutes >= 60 ? 'hour' : 'minute')
   const active = live?.status === 'active'
   const setsQuery = useLiveSets(lessonId)
   const setOrder = new Map((setsQuery.data ?? []).map((set) => [set.id, set.position]))
@@ -140,10 +148,10 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
   }
 
   // Un solo paso principal: siempre el siguiente movimiento lógico de la clase.
-  let primary: { label: string; run: () => void } | null = null
-  if (!session) primary = next
-    ? { label: t('live.cockpit.startAndLaunch'), run: () => void act(async () => { const s = await ensureSession(); await launchNext(s.id) }) }
-    : { label: t('live.startClass'), run: () => void act(ensureSession) }
+  let primary: { label: string; run: () => void; disabled?: boolean } | null = null
+  if (!session || otherSession) primary = next
+    ? { label: t('live.cockpit.startAndLaunch'), disabled: !!otherSession && !stale, run: () => void act(async () => { const s = await ensureSession(); await launchNext(s.id) }) }
+    : { label: t('live.startClass'), disabled: !!otherSession && !stale, run: () => void act(ensureSession) }
   else if (active && openRun && !blockRuns.includes(openRun)) primary = { label: t('live.cockpit.goToOpen'), run: () => setPicked(openBlock) }
   else if (active && current?.status === 'open') primary = {
     label: t(current.type === 'quiz' || current.type === 'static_quiz' ? 'live.cockpit.closeAndReveal' : 'live.cockpit.closeAndShow'),
@@ -238,13 +246,27 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
   </div> : <div className="flex h-full items-center justify-center text-lg text-text-muted">{t('live.cockpit.noOpenRound')}</div>
 
   return <div className="flex h-screen min-h-0 flex-col overflow-hidden p-2 text-text">
-    {query.isPending || plan.isPending ? <p className="p-8" role="status">{t('live.loading')}</p> : <main className="flex min-h-0 flex-1 flex-col gap-2">
+    {query.isPending || plan.isPending ? <p className="p-8" role="status">{t('live.loading')}</p> : <main className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
       {active && live ? <ScreenControl sessionId={live.id} lessonId={lessonId} code={live.code} presentation={deck.data ?? null}
         latestRunOpenedAt={runs.reduce<string | null>((latest, run) => !latest || Date.parse(run.opened_at) > Date.parse(latest) ? run.opened_at : latest, null)}
         toolbar={toolbar} activityStage={activityStage} /> : <>
         <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border pb-2">{toolbar}</header>
+        {otherSession && <section role="status" className="w-full shrink-0 rounded-control border-2 border-amber-600 bg-amber-50 p-3 text-amber-950">
+          <p className="font-bold">{t('live.otherLessonActive')}</p>
+          <p>{t('live.otherLessonDetails', { title: otherLessonTitle, code: otherSession.code })}</p>
+          <p>{t('live.otherLessonOpened', { date: new Date(otherSession.created_at).toLocaleString(i18n.resolvedLanguage), relative: relativeTime })}</p>
+          {stale && <p className="font-semibold">{t('live.otherLessonStale')}</p>}
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Button variant="destructive" className="min-h-11" disabled={busy} onClick={() => {
+              if (window.confirm(t('live.confirmEndOther', { code: otherSession.code }))) void act(async () => {
+                await end.mutateAsync({ p_session_id: otherSession.id })
+                await query.refetch()
+              })
+            }}>{t('live.endOtherClass')}</Button>
+            <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => navigate(`/clase-control/${offeringId}/${otherSession.lesson_id}${liveSearch()}`)}>{t('live.goToOtherClass')}</Button>
+          </div>
+        </section>}
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
-          {session && !relevant && <p role="status">{t('live.otherLessonActive')}</p>}
           <h1 className="text-2xl font-bold">{selected?.title ?? t('live.prepareEmpty')}</h1>
           {!session && deck.data && <Button variant="secondary" className="min-h-11" disabled={busy}
             onClick={() => void act(async () => { const s = await ensureSession(); await liveRpc('set_live_screen', { p_session_id: s.id, p_mode: 'slides', p_slide: 1 }); void ping(s.code) })}>{t('live.screen.startWithSlides')}</Button>}
@@ -257,7 +279,7 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
         </div>
         <div className="grid gap-2 rounded-control border border-border bg-surface-elevated p-2">
           <div className="flex flex-wrap items-stretch gap-3">
-            {primary ? <Button className="min-h-11 flex-[1_1_14rem] text-lg font-bold" disabled={busy} onClick={primary.run}>{primary.label}</Button>
+            {primary ? <Button className="min-h-11 flex-[1_1_14rem] text-lg font-bold" disabled={busy || primary.disabled} onClick={primary.run}>{primary.label}</Button>
               : <p className="flex min-h-11 flex-[1_1_14rem] items-center font-semibold">{relevant && !active ? t('live.ended') : t('live.cockpit.allDone')}</p>}
             {active && current?.status === 'open' && <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => void act(() => pause.mutateAsync({ p_run_id: current.id, p_paused: !current.paused }))}>{t(current.paused ? 'live.resumeRound' : 'live.pauseRound')}</Button>}
             {active && current && <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => { if (window.confirm(t('live.confirmResetRun'))) void act(() => resetRun.mutateAsync({ p_run_id: current.id })) }}>{t('live.resetRun')}</Button>}
@@ -267,9 +289,10 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
             {(current.type === 'quiz' || current.type === 'static_quiz' || current.type === 'compare') && <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => void act(() => reveal.mutateAsync({ p_run_id: current.id, p_reveal: !current.reveal }))}>{t(current.reveal ? 'live.hideReveal' : current.type === 'compare' ? 'live.revealModels' : 'live.revealCorrect')}</Button>}
             {current.type === 'quiz' && !formative && <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => void act(() => ranking.mutateAsync({ p_run_id: current.id, p_show: !current.show_ranking }))}>{t(current.show_ranking ? 'live.hideRanking' : 'live.showRanking')}</Button>}
           </div>}
+          {otherSession && !stale && <p className="text-sm text-text-muted">{t('live.endOtherToStart')}</p>}
           {next && current && <p className="text-sm text-text-muted">{t('live.cockpit.after', { title: nextTitle })}</p>}
           {message && <p role="alert">{message}</p>}
-          {!session && <details className="text-sm">
+          {(!session || stale) && <details className="text-sm">
             <summary className="cursor-pointer text-text-muted">{t('live.cockpit.accessOptions')} · {t(accessMode === 'both' ? 'live.accessBoth' : accessMode === 'enrolled' ? 'live.accessEnrolled' : 'live.accessGuest')}{askName ? ` · ${t('live.cockpit.nameRequired')}` : ''}</summary>
             <div className="mt-3 grid gap-3">
               <fieldset className="grid gap-2"><legend className="mb-1 font-semibold">{t('live.cockpit.whoJoins')}</legend>
