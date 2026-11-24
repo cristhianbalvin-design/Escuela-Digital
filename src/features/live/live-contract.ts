@@ -90,6 +90,7 @@ const activityInput = z.object({
 // Las claves y los campos corresponden a las firmas PostgreSQL.
 export const liveRpcInputSchemas = {
   get_course_prep_status: z.object({ p_version_id: uuid }).strict(),
+  get_offering_sessions_status: z.object({ p_offering_id: uuid }).strict(),
   get_live_activities: lessonId,
   save_live_activities: z.object({ p_lesson_id: uuid, p_items: z.array(activityInput).max(500) }).strict(),
   create_live_session: z.object({
@@ -231,7 +232,16 @@ export const coursePrepStatusOutput = z.array(z.object({
 }).strict())
 export type CoursePrepStatus = z.output<typeof coursePrepStatusOutput>[number]
 
+export const offeringSessionsStatusOutput = z.object({
+  enrolled: count, sessions: z.array(z.object({
+    lesson_id: uuid, materials: count, slides: count, blocks: count, activities: count,
+    live_classes: count, live_runs: count, live_responses: count, attendance_taken: z.boolean(), attended: count,
+  }).strict()),
+}).strict()
+export type OfferingSessionStatus = z.output<typeof offeringSessionsStatusOutput>['sessions'][number]
+
 export const liveRpcOutputSchemas = {
+  get_offering_sessions_status: offeringSessionsStatusOutput,
   get_course_prep_status: coursePrepStatusOutput,
   get_live_activities: activitiesOutput,
   save_live_activities: activitiesOutput,

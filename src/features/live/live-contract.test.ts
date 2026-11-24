@@ -95,6 +95,7 @@ describe('entradas nuevas de quiz y comparativa', () => {
 
 describe('salidas JSON de las 18 RPC en vivo', () => {
   const examples: Record<LiveRpcName, unknown> = {
+    get_offering_sessions_status: { enrolled: 1, sessions: [{ lesson_id: id, materials: 1, slides: 2, blocks: 1, activities: 0, live_classes: 1, live_runs: 0, live_responses: 0, attendance_taken: true, attended: 1 }] },
     get_course_prep_status: [{ lesson_id: id, materials: 1, teacher_files: 0, has_text: false, slides: 2, slide_notes: 1, blocks: 1, plan_minutes: 30, activities: 0, activity_notes: 0, taught: 0 }],
     get_live_activities: [activity], save_live_activities: [activity],
     create_live_session: controlState, get_live_control_state: controlState, get_offering_live_session: controlState,

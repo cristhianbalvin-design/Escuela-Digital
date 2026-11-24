@@ -69,3 +69,11 @@ export function useCoursePrepStatus(versionId: string | undefined) {
     queryFn: () => liveRpc('get_course_prep_status', { p_version_id: versionId! }),
   })
 }
+
+export function useOfferingSessionsStatus(offeringId: string | undefined) {
+  return useQuery({
+    queryKey: ['offering-sessions-status', offeringId],
+    enabled: !!supabase && !!offeringId,
+    queryFn: () => liveRpc('get_offering_sessions_status', { p_offering_id: offeringId! }),
+  })
+}

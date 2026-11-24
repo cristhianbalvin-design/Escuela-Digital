@@ -418,7 +418,7 @@ export function OfferingDetailPage() {
             )}
           </div>
         )}
-        {tab === 'sessions' && offeringId && <OfferingSessionsTab offeringId={offeringId} courseId={offering.course_id ?? null} />}
+        {tab === 'sessions' && offeringId && <OfferingSessionsTab offeringId={offeringId} courseId={offering.course_id ?? null} onAttendance={() => setTab('attendance')} />}
         {tab === 'planning' && offeringId && <PlanningTab offeringId={offeringId} />}
         {tab === 'schedule' && offeringId && <ScheduleTab offeringId={offeringId} />}
         {tab === 'attendance' && offeringId && <AttendanceTab offeringId={offeringId} />}
