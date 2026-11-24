@@ -1,4 +1,6 @@
-import { SessionRow } from './SessionRow'
+import { SessionRow, prepState } from './SessionRow'
+import { useCoursePrepStatus } from '@/features/live/live-api'
+import type { CoursePrepStatus } from '@/features/live/live-contract'
 import { useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -43,9 +45,11 @@ export function CourseBuilderPage() {
   const [versionId, setVersionId] = useState('')
   const [notice, setNotice] = useState('')
   const [contentMode, setContentMode] = useState(false)
+  const [filter, setFilter] = useState<'all' | 'missing' | 'empty' | 'ready'>('all')
   const data = query.data
   const version = data?.versions.find((item) => item.id === versionId) ?? data?.versions[0]
   const modules = (data?.modules ?? []).filter((item) => item.version_id === version?.id)
+  const prep = useCoursePrepStatus(version?.id)
   const editable = !!data?.canEdit && version?.status === 'draft'
   // Edición de contenido (textos y archivos) en una versión publicada, sin versión nueva.
   const liveEditable = !!data?.canEdit && version?.status === 'published'
@@ -160,13 +164,16 @@ export function CourseBuilderPage() {
           ? t('teacherCourses.checkReady')
           : t('teacherCourses.checkMissing')}</p>
       </Card>
+      {prep.isPending && <Skeleton className="h-32" />}
+      {prep.isError && <Card><p role="alert">{t('prep.error')}</p><Button onClick={() => void prep.refetch()}>{t('retry')}</Button></Card>}
+      {prep.data && <PrepSummary statuses={prep.data} filter={filter} onFilter={setFilter} />}
       {modules.length === 0 && <EmptyState title={t('teacherCourses.noModules')} />}
       <div className="grid gap-4">
         {modules.map((module, index) => {
           const siblings = data.lessons.filter((lesson) => lesson.module_id === module.id)
           return (
             <ModuleEditor key={`${module.id}:${module.title}`} module={module}
-              lessons={siblings} editable={editable}
+              lessons={siblings} editable={editable} statuses={prep.data} filter={filter}
               sessionOffset={modules.slice(0, index).reduce((sum, item) => sum + data.lessons.filter((lesson) => lesson.module_id === item.id).length, 0)}
               pending={mutation.isPending}
               onRename={(title) => void run({ kind: 'renameModule', id: module.id, title })}
@@ -199,11 +206,41 @@ export function CourseBuilderPage() {
   )
 }
 
+function PrepSummary({ statuses, filter, onFilter }: { statuses: CoursePrepStatus[]; filter: 'all' | 'missing' | 'empty' | 'ready'; onFilter: (value: 'all' | 'missing' | 'empty' | 'ready') => void }) {
+  const { t } = useTranslation()
+  const count = (test: (s: CoursePrepStatus) => boolean) => statuses.filter(test).length
+  const total = statuses.length
+  const ready = count((s) => prepState(s).ready)
+  const empty = count((s) => prepState(s).empty)
+  const slides = count((s) => s.slides > 0)
+  const cards = [
+    ['ready', ready, total], ['material', count((s) => s.materials > 0), total],
+    ['presentation', slides, total], ['notes', count((s) => s.slides > 0 && s.slide_notes >= s.slides), slides],
+    ['guide', count((s) => s.blocks > 0), total], ['activities', count((s) => s.activities > 0), total],
+  ] as const
+  const filters = [['all', total], ['missing', total - ready - empty], ['empty', empty], ['ready', ready]] as const
+  return <>
+    <section aria-label={t('prep.summary')} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      {cards.map(([key, value, denominator]) => <div key={key} className="grid gap-2 rounded-control border border-border bg-surface p-4">
+        <span className="text-sm font-semibold text-text-muted">{t(`prep.summaryLabels.${key}`)}</span>
+        <span className="font-heading text-2xl font-bold tabular-nums">{value} <span className="text-base text-text-muted">/ {denominator}</span></span>
+        <div className="h-1.5 overflow-hidden rounded-full bg-surface-elevated"><div className="h-full rounded-full bg-brand" style={{ width: `${denominator ? value / denominator * 100 : 0}%` }} /></div>
+      </div>)}
+    </section>
+    <div role="group" aria-label={t('prep.filter')} className="flex w-fit flex-wrap gap-1 rounded-control border border-border bg-surface p-1">
+      {filters.map(([key, value]) => <button key={key} type="button" aria-pressed={filter === key} onClick={() => onFilter(key)} className={`min-h-11 rounded-control px-3 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand ${filter === key ? 'bg-brand-soft text-brand' : 'text-text-muted'}`}>{t(`prep.filters.${key}`)} &#183; {value}</button>)}
+    </div>
+    {filter !== 'all' && filters.find(([key]) => key === filter)?.[1] === 0 && <p className="text-text-muted">{t('prep.noMatches')}</p>}
+  </>
+}
+
 function ModuleEditor({
   module, lessons, editable, pending, onRename, onDelete, onMove,
-  canUp, canDown, onAddLesson, onMoveLesson, sessionOffset,
+  canUp, canDown, onAddLesson, onMoveLesson, sessionOffset, statuses, filter,
 }: {
   sessionOffset: number
+  statuses: CoursePrepStatus[] | undefined
+  filter: 'all' | 'missing' | 'empty' | 'ready'
   module: Module
   lessons: Lesson[]
   editable: boolean
@@ -238,13 +275,24 @@ function ModuleEditor({
             }}>{t('teacherCommon.delete')}</Button>
         </div>
       )}
-      <div className="grid gap-2">
-        {lessons.map((lesson, index) => (
-          <SessionRow key={lesson.id} lesson={lesson} number={sessionOffset + index + 1}
+      {!statuses && <div className="grid gap-2">{lessons.map((lesson, index) => <div key={lesson.id} className="flex flex-wrap items-center gap-2 rounded-control border border-border p-3">
+        <Link className="min-h-11 flex-1 content-center font-semibold underline" to={`sesiones/${lesson.id}`}>{t('sessions.number', { number: sessionOffset + index + 1 })} &#183; {lesson.title}</Link>
+        {editable && <><Button variant="secondary" disabled={pending || index === 0} onClick={() => onMoveLesson(lesson, index, -1)} aria-label={t('teacherCommon.up')}>&#8593;</Button><Button variant="secondary" disabled={pending || index === lessons.length - 1} onClick={() => onMoveLesson(lesson, index, 1)} aria-label={t('teacherCommon.down')}>&#8595;</Button></>}
+      </div>)}</div>}
+      {statuses && <div className="overflow-x-auto rounded-control border border-border">
+        <div className="hidden min-w-[1120px] grid-cols-[220px_repeat(5,minmax(0,1fr))_170px] gap-2 p-3 text-xs font-bold uppercase text-text-muted md:grid">
+          {['session', 'material', 'presentation', 'notes', 'guide', 'activities', 'state'].map((key) => <span key={key}>{t(`prep.columns.${key}`)}</span>)}
+        </div>
+        {lessons.map((lesson, index) => {
+          const status = statuses.find((item) => item.lesson_id === lesson.id)
+          if (!status) return null
+          const state = prepState(status)
+          if (filter !== 'all' && (filter === 'ready' ? !state.ready : filter === 'empty' ? !state.empty : state.ready || state.empty)) return null
+          return <SessionRow key={lesson.id} lesson={lesson} status={status} number={sessionOffset + index + 1}
             editable={editable} pending={pending} canUp={index > 0} canDown={index < lessons.length - 1}
             onMove={(direction) => onMoveLesson(lesson, index, direction)} />
-        ))}
-      </div>
+        })}
+      </div>}
       {editable && (
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" disabled={pending} onClick={() => onAddLesson('reading')}>

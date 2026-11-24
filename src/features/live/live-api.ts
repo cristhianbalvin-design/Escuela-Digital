@@ -61,3 +61,11 @@ export function useProjectorState(code: string) {
     retry: false,
   })
 }
+
+export function useCoursePrepStatus(versionId: string | undefined) {
+  return useQuery({
+    queryKey: ['course-prep-status', versionId],
+    enabled: !!supabase && !!versionId,
+    queryFn: () => liveRpc('get_course_prep_status', { p_version_id: versionId! }),
+  })
+}

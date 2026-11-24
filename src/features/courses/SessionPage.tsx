@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { Button, Card, EmptyState, Skeleton, useToast } from '@/components/ui'
@@ -26,7 +26,13 @@ export function SessionPage() {
   const query = useCourse(tenantId, courseId, userId)
   const mutation = useCourseAction(tenantId, courseId)
   const [contentMode, setContentMode] = useState(false)
-  const [editBlocks, setEditBlocks] = useState(false)
+  const [editBlocks, setEditBlocks] = useState(() => params.get('section') === 'guide')
+  const section = params.get('section')
+  useEffect(() => {
+    if (!section || query.isPending) return
+    const timer = window.setTimeout(() => document.getElementById(`session-section-${section}`)?.scrollIntoView({ block: 'start' }), 100)
+    return () => window.clearTimeout(timer)
+  }, [section, query.isPending])
   const tab: Tab = params.get('tab') === 'contenido' ? 'contenido' : 'guion'
   const data = query.data
   const lesson = data?.lessons.find((item) => item.id === lessonId)
@@ -75,20 +81,20 @@ export function SessionPage() {
     {tab === 'contenido' ? <div className="grid gap-4">
       {liveEditable && <Button className="w-fit" variant={contentMode ? 'primary' : 'secondary'} onClick={() => setContentMode((value) => !value)}>
         {contentMode ? t('teacherCourses.stopEditContent') : t('teacherCourses.editContent')}</Button>}
-      <LessonEditor key={`${lesson.id}:${lesson.title}`} lesson={lesson} versionId={lesson.version_id}
+      <div id="session-section-material"><LessonEditor key={`${lesson.id}:${lesson.title}`} lesson={lesson} versionId={lesson.version_id}
         editable={editable} contentEditable={contentEditable} pending={mutation.isPending}
         canUp={false} canDown={false}
         onSave={(title, content) => void run({ kind: 'saveLesson', id: lesson.id, title, content })}
         onDelete={() => void run({ kind: 'deleteLesson', id: lesson.id })}
         onMove={() => undefined} />
-      {lesson.type !== 'reading' && <LessonResources lessonId={lesson.id} tenantId={lesson.tenant_id} versionId={lesson.version_id} editable={editable || contentEditable} />}
+      {lesson.type !== 'reading' && <LessonResources lessonId={lesson.id} tenantId={lesson.tenant_id} versionId={lesson.version_id} editable={editable || contentEditable} />}</div>
     </div> : <div className="grid gap-4">
-      <PresentationPanel lessonId={lesson.id} editable={data.canEdit} />
+      <div id="session-section-presentation"><div id="session-section-notes"><PresentationPanel key={`${lesson.id}:${section}`} lessonId={lesson.id} editable={data.canEdit} initialNotesOpen={section === 'notes'} /></div></div>
       {data.canEdit && <Button className="w-fit" variant={editBlocks ? 'primary' : 'secondary'} onClick={() => setEditBlocks((value) => !value)}>
         {editBlocks ? t('sessions.doneBlocks') : t('sessions.editBlocks')}</Button>}
-      {editBlocks
+      <div id="session-section-guide"><div id="session-section-activities">{editBlocks
         ? <ScriptEditor lessonId={lesson.id} tenantId={lesson.tenant_id} editable={data.canEdit} />
-        : <SessionScript lessonId={lesson.id} base={`${courseBase}/sesiones/${lesson.id}`} editable={data.canEdit} />}
+        : <SessionScript lessonId={lesson.id} base={`${courseBase}/sesiones/${lesson.id}`} editable={data.canEdit} />}</div></div>
     </div>}
   </section>
 }

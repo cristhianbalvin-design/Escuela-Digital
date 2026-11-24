@@ -95,6 +95,7 @@ describe('entradas nuevas de quiz y comparativa', () => {
 
 describe('salidas JSON de las 18 RPC en vivo', () => {
   const examples: Record<LiveRpcName, unknown> = {
+    get_course_prep_status: [{ lesson_id: id, materials: 1, teacher_files: 0, has_text: false, slides: 2, slide_notes: 1, blocks: 1, plan_minutes: 30, activities: 0, activity_notes: 0, taught: 0 }],
     get_live_activities: [activity], save_live_activities: [activity],
     create_live_session: controlState, get_live_control_state: controlState, get_offering_live_session: controlState,
     launch_live_run: controlState, launch_live_set: controlState, search_live_roster: [], get_live_screen: { mode: 'activity', slide: 1, updated_at: null, presentation: null }, set_live_screen: { mode: 'slides', slide: 2, updated_at: '2026-11-13T22:00:00+00:00', presentation: { file_name: 'clase.pdf', folder: 'a/b', page_count: 24, aspect: 1.7778, updated_at: '2026-11-13T22:00:00+00:00' } }, get_lesson_presentation: null, save_lesson_presentation: { file_name: 'clase.pdf', folder: 'a/b', page_count: 24, aspect: 1.7778, updated_at: '2026-11-13T22:00:00+00:00' }, delete_lesson_presentation: null, get_slide_notes: [{ slide: 1, notes: 'Hola' }], save_slide_notes: [], get_live_notes: [], save_live_notes: [], close_live_run: controlState,

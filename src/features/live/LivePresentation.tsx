@@ -14,7 +14,7 @@ function Thumb({ deck, slide, className, alt = '' }: { deck: LessonPresentation;
 }
 
 /** Guion de la sesión: subir, reemplazar o quitar la presentación en PDF. */
-export function PresentationPanel({ lessonId, editable }: { lessonId: string; editable: boolean }) {
+export function PresentationPanel({ lessonId, editable, initialNotesOpen = false }: { lessonId: string; editable: boolean; initialNotesOpen?: boolean }) {
   const { t } = useTranslation()
   const query = useLessonPresentation(lessonId)
   const upload = useUploadPresentation(lessonId)
@@ -23,7 +23,7 @@ export function PresentationPanel({ lessonId, editable }: { lessonId: string; ed
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const [message, setMessage] = useState('')
   const [showAll, setShowAll] = useState(false)
-  const [notesOpen, setNotesOpen] = useState(false)
+  const [notesOpen, setNotesOpen] = useState(initialNotesOpen)
   const presentation = query.data ?? null
 
   async function pick(file: File | undefined) {

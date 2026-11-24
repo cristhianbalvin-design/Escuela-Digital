@@ -89,6 +89,7 @@ const activityInput = z.object({
 
 // Las claves y los campos corresponden a las firmas PostgreSQL.
 export const liveRpcInputSchemas = {
+  get_course_prep_status: z.object({ p_version_id: uuid }).strict(),
   get_live_activities: lessonId,
   save_live_activities: z.object({ p_lesson_id: uuid, p_items: z.array(activityInput).max(500) }).strict(),
   create_live_session: z.object({
@@ -224,7 +225,14 @@ const projectorStateOutput = z.object({
   screen: screenOutput.optional(),
 }).strict()
 
+export const coursePrepStatusOutput = z.array(z.object({
+  lesson_id: uuid, materials: count, teacher_files: count, has_text: z.boolean(), slides: count,
+  slide_notes: count, blocks: count, plan_minutes: count, activities: count, activity_notes: count, taught: count,
+}).strict())
+export type CoursePrepStatus = z.output<typeof coursePrepStatusOutput>[number]
+
 export const liveRpcOutputSchemas = {
+  get_course_prep_status: coursePrepStatusOutput,
   get_live_activities: activitiesOutput,
   save_live_activities: activitiesOutput,
   create_live_session: controlStateOutput,

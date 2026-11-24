@@ -229,6 +229,7 @@ export function useCourseAction(tenantId: string | undefined, courseId: string |
       }
     },
     onSuccess: () => {
+      void cache.invalidateQueries({ queryKey: ['course-prep-status'] })
       void cache.invalidateQueries({ queryKey: ['course', tenantId, courseId] })
       void cache.invalidateQueries({ queryKey: ['courses', tenantId] })
     },
