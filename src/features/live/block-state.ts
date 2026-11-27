@@ -43,3 +43,14 @@ export function allowedActions(state: BlockState | undefined): BlockAction[] {
     default: return ['start', 'skip']
   }
 }
+
+/** Paso en curso según el tiempo transcurrido y los minutos de cada paso (−1 si el bloque no empezó o los pasos no tienen minutos). */
+export function currentStepIndex(steps: { minutes: number | null }[], seconds: number, started: boolean): number {
+  if (!started || steps.length === 0 || steps.every((step) => step.minutes === null)) return -1
+  let total = 0
+  for (let i = 0; i < steps.length; i++) {
+    total += (steps[i]!.minutes ?? 0) * 60
+    if (seconds < total) return i
+  }
+  return steps.length - 1
+}

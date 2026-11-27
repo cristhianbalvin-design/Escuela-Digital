@@ -8,9 +8,9 @@ import { useSessionBlocks, useSetBlockState } from './live-teacher-api'
  * Estado y cronómetro persistente del bloque seleccionado (el tiempo vive en el servidor).
  * Con `next`, «Terminar» se convierte en «Terminar y pasar al siguiente»: cierra este bloque, inicia el siguiente y lo selecciona.
  */
-export function BlockTimer({ sessionId, itemId, plannedMinutes, next, onAdvance }: {
+export function BlockTimer({ sessionId, itemId, plannedMinutes, next, onAdvance, compact = false }: {
   sessionId: string; itemId: string; plannedMinutes: number | null
-  next?: { id: string; title: string } | null; onAdvance?: (id: string) => void
+  next?: { id: string; title: string } | null; onAdvance?: (id: string) => void; compact?: boolean
 }) {
   const { t } = useTranslation()
   const blocks = useSessionBlocks(sessionId)
@@ -45,6 +45,18 @@ export function BlockTimer({ sessionId, itemId, plannedMinutes, next, onAdvance 
   const canAdvance = !!next && (entry?.state === 'active' || entry?.state === 'paused')
   const actions = allowedActions(entry?.state).filter((action) => !(canAdvance && action === 'finish'))
   const disabled = change.isPending || blocks.isPending
+  const buttons = <>
+    {actions.map((action) => <Button key={action} variant={!canAdvance && (action === 'start' || action === 'pause') ? 'primary' : 'secondary'} className="min-h-11"
+      disabled={disabled} onClick={() => void run(action)}>{t(`blockState.action.${action}${action === 'start' && entry?.state === 'paused' ? 'Resume' : ''}`)}</Button>)}
+    {canAdvance && <Button className="min-h-11 font-bold" disabled={disabled} onClick={() => void advance()}>{t('dictar.completeNext')}</Button>}
+  </>
+  if (compact) return <div className="flex flex-wrap items-center gap-3" role="group" aria-label={t('blockState.title')}>
+    <span className="rounded-full border border-border px-2.5 py-1 text-xs font-bold uppercase tracking-wide" role="status">{t(`blockState.state.${entry?.state ?? 'pending'}`)}</span>
+    <span role="timer" aria-live="off" className={`text-3xl font-extrabold tabular-nums ${over ? 'text-error' : ''}`}>{formatClock(seconds)}</span>
+    {planned !== null && <span className="text-sm text-text-muted tabular-nums">{over ? t('blockState.over', { time: formatClock(seconds - planned) }) : t('dictar.remaining', { time: formatClock(planned - seconds) })}</span>}
+    <div className="ml-auto flex flex-wrap gap-2">{buttons}</div>
+    {(error || blocks.isError) && <p role="alert" className="basis-full text-sm text-error">{t('blockState.error')}</p>}
+  </div>
   return <div className="grid gap-3" role="group" aria-label={t('blockState.title')}>
     <div className="flex flex-wrap items-end justify-between gap-3">
       <span className="rounded-full border border-border px-2.5 py-1 text-xs font-bold uppercase tracking-wide" role="status">{t(`blockState.state.${entry?.state ?? 'pending'}`)}</span>
@@ -56,9 +68,7 @@ export function BlockTimer({ sessionId, itemId, plannedMinutes, next, onAdvance 
     </div>
     {planned !== null && <div className="h-2 rounded-full bg-border" aria-hidden="true"><div className={`h-2 rounded-full ${over ? 'bg-error' : 'bg-brand'}`} style={{ width: `${percent}%` }} /></div>}
     <div className="flex flex-wrap items-center gap-2">
-      {actions.map((action) => <Button key={action} variant={!canAdvance && (action === 'start' || action === 'pause') ? 'primary' : 'secondary'} className="min-h-11"
-        disabled={disabled} onClick={() => void run(action)}>{t(`blockState.action.${action}${action === 'start' && entry?.state === 'paused' ? 'Resume' : ''}`)}</Button>)}
-      {canAdvance && <Button className="min-h-11 font-bold" disabled={disabled} onClick={() => void advance()}>{t('dictar.completeNext')}</Button>}
+      {buttons}
       <span className="min-w-0 flex-1 text-right text-sm text-text-muted">{next ? t('dictar.nextUp', { title: next.title }) : t('dictar.lastBlock')}</span>
     </div>
     {(error || blocks.isError) && <p role="alert" className="text-sm text-error">{t('blockState.error')}</p>}

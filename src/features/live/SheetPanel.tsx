@@ -5,7 +5,7 @@ import { SafeMarkdown } from './SafeMarkdown'
 import { SheetView, type ShownResource } from './SheetView'
 import { downloadSheetFile } from './sheet-files'
 import { formatBytes, type SheetOutput, type TeacherKey } from './sheet-utils'
-import { usePublishSheet, useSessionPublication } from './live-teacher-api'
+import { usePublishSheet, useSessionPublication, useSetProjectorPrompt } from './live-teacher-api'
 import { useBlockSheet } from './sheet-hooks'
 
 const card = 'grid gap-3 rounded-control border border-border bg-surface p-4'
@@ -16,17 +16,26 @@ function resourcesFor(sheet: SheetOutput, audience: 'students' | 'teacher'): Sho
 }
 
 /** Parte pública de la ficha en «Dictar»: publicación, pasos, prompts, recursos de alumnos y entregable. */
-export function SheetTeachMain({ lessonId, itemId, session }: { lessonId: string; itemId: string; session: { id: string; code: string } | null }) {
+export function SheetTeachMain({ lessonId, itemId, session, onProject }: {
+  lessonId: string; itemId: string; session: { id: string; code: string } | null; onProject?: () => void
+}) {
   const { t, i18n } = useTranslation()
   const { sheet, isPending, isError } = useBlockSheet(lessonId, itemId)
   const publication = useSessionPublication(session?.id)
   const publish = usePublishSheet(session?.id ?? '', session?.code ?? '')
   const [error, setError] = useState(false)
+  const focus = useSetProjectorPrompt(session?.id ?? '', session?.code ?? '')
+  const [projected, setProjected] = useState<string | null>(null)
+  const [focusError, setFocusError] = useState(false)
+  async function project(promptId: string | null) {
+    setFocusError(false)
+    try { await focus.mutateAsync(promptId); setProjected(promptId); onProject?.() } catch { setFocusError(true) }
+  }
   const publishedId = publication.data?.item_id ?? null
   const isPublished = publishedId === itemId
   async function change(next: string | null) {
     setError(false)
-    try { await publish.mutateAsync(next) } catch { setError(true) }
+    try { await publish.mutateAsync(next); setProjected(null) } catch { setError(true) }
   }
   if (isPending) return <p role="status" className="text-sm">{t('sheet.loading')}</p>
   if (isError) return <p role="alert" className="text-sm text-error">{t('sheet.loadError')}</p>
@@ -45,6 +54,13 @@ export function SheetTeachMain({ lessonId, itemId, session }: { lessonId: string
         ? <Button variant="secondary" className="min-h-11" disabled={publish.isPending} onClick={() => void change(null)}>{t('sheet.unpublish')}</Button>
         : <Button className="min-h-11" disabled={publish.isPending} onClick={() => void change(itemId)}>{t('sheet.publish')}</Button>)}
       {error && <p role="alert" className="basis-full text-sm text-error">{t('sheet.publishError')}</p>}
+      {session && isPublished && <div className="flex basis-full flex-wrap items-center gap-2 border-t border-emerald-200 pt-3">
+        <span className="text-sm font-semibold">{t('projectorSheet.onProjector')}</span>
+        <Button variant={projected === null ? 'primary' : 'secondary'} className="min-h-11" aria-pressed={projected === null} disabled={focus.isPending} onClick={() => void project(null)}>{t('projectorSheet.showSheet')}</Button>
+        {sheet.prompts.map((prompt) => <Button key={prompt.id} variant={projected === prompt.id ? 'primary' : 'secondary'} className="min-h-11" aria-pressed={projected === prompt.id}
+          disabled={focus.isPending} onClick={() => void project(prompt.id)}>{t('projectorSheet.showPrompt', { title: prompt.title })}</Button>)}
+        {focusError && <p role="alert" className="basis-full text-sm text-error">{t('projectorSheet.focusError')}</p>}
+      </div>}
     </section>
     <section aria-label={t('dictar.stepsTitle')} className={card}>
       <h2 className="text-lg font-bold">{t('dictar.stepsTitle')}</h2>

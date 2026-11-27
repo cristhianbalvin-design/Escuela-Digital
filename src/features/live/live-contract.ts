@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { isLiveCode, opportunityAnswerSchema, templateFieldSchema } from './live-utils'
-import { blockActionSchema, blockStatesOutputSchema } from './block-state'
+import { blockActionSchema, blockStateSchema, blockStatesOutputSchema } from './block-state'
 import { publicationOutputSchema, publicSheetOutputSchema, sheetInputSchema, sheetOutputSchema } from './sheet-utils'
 
 // La validación que depende de la configuración de una ronda se repite en SQL.
@@ -145,6 +145,8 @@ export const liveRpcInputSchemas = {
   get_session_blocks: sessionId,
   get_sheet_upload_prefix: z.object({ p_lesson_id: uuid, p_item_id: uuid }).strict(),
   set_session_block: z.object({ p_session_id: uuid, p_item_id: uuid, p_action: blockActionSchema }).strict(),
+  get_projector_sheet: z.object({ p_code: code }).strict(),
+  set_projector_prompt: z.object({ p_session_id: uuid, p_prompt_id: z.string().min(1).max(40).nullable() }).strict(),
 } as const
 
 export type LiveRpcName = keyof typeof liveRpcInputSchemas
@@ -296,6 +298,12 @@ export const liveRpcOutputSchemas = {
   get_session_blocks: blockStatesOutputSchema,
   get_sheet_upload_prefix: z.string().regex(/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\/$/),
   set_session_block: blockStatesOutputSchema,
+  get_projector_sheet: z.object({
+    sheet: publicSheetOutputSchema, focus_prompt: z.string().nullable(),
+    block: z.object({ state: blockStateSchema, elapsed_seconds: z.number().int().min(0), running_since: z.iso.datetime({ offset: true }).nullable() }).strict().nullable(),
+    server_now: z.iso.datetime({ offset: true }),
+  }).strict().nullable(),
+  set_projector_prompt: z.object({ item_id: z.uuid().nullable(), prompt_id: z.string().nullable() }).strict(),
 } as const satisfies Record<LiveRpcName, z.ZodType>
 
 export type LiveRpcOutput<K extends LiveRpcName> = z.output<(typeof liveRpcOutputSchemas)[K]>

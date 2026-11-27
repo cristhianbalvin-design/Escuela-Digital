@@ -174,7 +174,7 @@ export function useLiveSessions(offeringId: string, lessonId: string) {
 type ControlMutation = Exclude<LiveRpcName,
   'get_live_activities' | 'save_live_activities' | 'get_live_control_state' | 'get_offering_live_session' | 'list_live_sessions' |
   'get_live_sets' | 'save_live_set' | 'delete_live_set' |
-  'get_plan_item_sheets' | 'save_plan_item_sheet' | 'publish_plan_item_sheet' | 'get_session_publication' | 'get_live_published_sheet' | 'get_session_blocks' | 'set_session_block' | 'get_sheet_upload_prefix' |
+  'get_plan_item_sheets' | 'save_plan_item_sheet' | 'publish_plan_item_sheet' | 'get_session_publication' | 'get_live_published_sheet' | 'get_session_blocks' | 'set_session_block' | 'get_sheet_upload_prefix' | 'get_projector_sheet' | 'set_projector_prompt' |
   'join_live_session' | 'search_live_roster' | 'get_live_state' |
   'get_live_screen' | 'set_live_screen' | 'get_lesson_presentation' | 'save_lesson_presentation' | 'delete_lesson_presentation' | 'get_slide_notes' | 'save_slide_notes' | 'get_live_notes' | 'save_live_notes' | 'submit_live_response' | 'get_projector_state' | 'get_course_prep_status' | 'get_offering_sessions_status'>
 
@@ -281,5 +281,12 @@ export function useSetBlockState(sessionId: string) {
   return useMutation({
     mutationFn: (input: { itemId: string; action: BlockAction }) => liveRpc('set_session_block', { p_session_id: sessionId, p_item_id: input.itemId, p_action: input.action }),
     onSuccess: (result) => cache.setQueryData(sessionBlocksKey(sessionId), { ...result, receivedAt: Date.now() }),
+  })
+}
+
+export function useSetProjectorPrompt(sessionId: string, code: string) {
+  return useMutation({
+    mutationFn: (promptId: string | null) => liveRpc('set_projector_prompt', { p_session_id: sessionId, p_prompt_id: promptId }),
+    onSuccess: () => { void ping(code) },
   })
 }

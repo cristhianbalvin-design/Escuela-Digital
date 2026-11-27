@@ -28,6 +28,12 @@ export const resources = {
         notFound: 'No se encontró la sesión.', breadcrumb: 'Ubicación', previous: 'Sesión anterior', parts: 'Partes de la sesión',
         tabContent: 'Contenido para alumnos', tabScript: 'Guion de la clase', editBlocks: 'Editar bloques del guion', doneBlocks: 'Listo, volver al guion',
       },
+      projectorSheet: {
+        notStarted: 'previsto {{minutes}} min', left: 'quedan', over: 'tiempo excedido', tool: 'Herramienta', resources: 'Recursos',
+        resourcesHint: 'Entra con el código {{code}} desde tu celular para descargarlos.', deliverable: 'Entregable',
+        copyHint: 'Entra con el código desde tu celular para copiar este prompt.', onProjector: 'En el proyector:', showSheet: 'Ficha completa',
+        showPrompt: 'Proyectar {{title}}', focusError: 'No se pudo cambiar lo que muestra el proyector.',
+      },
       dictar: {
         guion: 'Guion', guionProgress: '{{done}} de {{total}} hechos', blockOf: 'Bloque {{number}} de {{total}}', remaining: 'quedan {{time}}',
         completeNext: 'Terminar y pasar al siguiente →', nextUp: 'Siguiente: {{title}}', lastBlock: 'Es el último bloque de la sesión.',
@@ -1373,6 +1379,12 @@ export const resources = {
         activities_one: '{{count}} activity', activities_other: '{{count}} activities', noActivities: 'No activities',
         notFound: 'Session not found.', breadcrumb: 'Location', previous: 'Previous session', parts: 'Session parts',
         tabContent: 'Student content', tabScript: 'Class script', editBlocks: 'Edit script blocks', doneBlocks: 'Done, back to script',
+      },
+      projectorSheet: {
+        notStarted: 'planned {{minutes}} min', left: 'left', over: 'time exceeded', tool: 'Tool', resources: 'Resources',
+        resourcesHint: 'Join with code {{code}} on your phone to download them.', deliverable: 'Deliverable',
+        copyHint: 'Join with the code on your phone to copy this prompt.', onProjector: 'On the projector:', showSheet: 'Full sheet',
+        showPrompt: 'Project {{title}}', focusError: 'Could not change what the projector shows.',
       },
       dictar: {
         guion: 'Script', guionProgress: '{{done}} of {{total}} done', blockOf: 'Block {{number}} of {{total}}', remaining: '{{time}} left',

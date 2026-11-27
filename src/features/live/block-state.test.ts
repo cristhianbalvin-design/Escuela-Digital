@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { allowedActions, blockStatesOutputSchema, elapsedSeconds, formatClock } from './block-state'
+import { allowedActions, blockStatesOutputSchema, currentStepIndex, elapsedSeconds, formatClock } from './block-state'
 
 const id = '11111111-1111-4111-8111-111111111111'
 const base = Date.parse('2026-11-27T20:00:00+00:00')
@@ -36,5 +36,20 @@ describe('cronómetro de bloques', () => {
     expect(blockStatesOutputSchema.safeParse(ok).success).toBe(true)
     expect(blockStatesOutputSchema.safeParse({ ...ok, blocks: [{ ...ok.blocks[0], state: 'otro' }] }).success).toBe(false)
     expect(blockStatesOutputSchema.safeParse({ ...ok, extra: 1 }).success).toBe(false)
+  })
+})
+
+describe('paso en curso del proyector', () => {
+  const steps = [{ minutes: 3 }, { minutes: 4 }, { minutes: 7 }]
+  it('sigue los minutos acumulados', () => {
+    expect(currentStepIndex(steps, 0, true)).toBe(0)
+    expect(currentStepIndex(steps, 3 * 60, true)).toBe(1)
+    expect(currentStepIndex(steps, 7 * 60 + 5, true)).toBe(2)
+    expect(currentStepIndex(steps, 99 * 60, true)).toBe(2)
+  })
+  it('no marca nada si el bloque no empezó o no hay minutos', () => {
+    expect(currentStepIndex(steps, 0, false)).toBe(-1)
+    expect(currentStepIndex([{ minutes: null }], 60, true)).toBe(-1)
+    expect(currentStepIndex([], 60, true)).toBe(-1)
   })
 })

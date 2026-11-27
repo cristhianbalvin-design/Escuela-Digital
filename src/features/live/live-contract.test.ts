@@ -112,6 +112,7 @@ describe('salidas JSON de las 18 RPC en vivo', () => {
     get_session_blocks: { server_now: '2026-11-27T20:00:00.123456+00:00', blocks: [{ item_id: id, state: 'active', elapsed_seconds: 12, running_since: '2026-11-27T20:00:00+00:00' }] },
     get_sheet_upload_prefix: `${id}/${id}/${id}/`,
     set_session_block: { server_now: '2026-11-27T20:00:00+00:00', blocks: [] },
+    get_projector_sheet: null, set_projector_prompt: { item_id: id, prompt_id: 'p1' },
   }
 
   it.each(Object.keys(examples) as LiveRpcName[])('%s acepta su estructura', (name) => {

@@ -13,12 +13,12 @@ import { BlockTimer } from './BlockTimer'
 import { SheetPrivateAside, SheetTeachMain } from './SheetPanel'
 import { useBlockSheet } from './sheet-hooks'
 import { TeacherNotesAside } from './LiveNotes'
-import { useLessonPresentation } from './presentation'
+import { effectiveScreen, useLessonPresentation } from './presentation'
 import { liveRpc } from './live-api'
 import type { LiveRpcOutput } from './live-contract'
 import {
   useCloseLiveRun, useCreateLiveSession, useEndLiveSession, useLaunchLiveRun, useLaunchLiveSet, useLiveActivities, useLiveSets, useOfferingLiveSession, useSessionBlocks,
-  ping, useResetLiveRun, useResetLiveSessionResults, useSetLiveRunPaused, useSetLiveRunRanking, useSetLiveRunReveal, useSetLiveRunVisibility,
+  ping, useLiveScreen, useSetLiveScreen, useResetLiveRun, useResetLiveSessionResults, useSetLiveRunPaused, useSetLiveRunRanking, useSetLiveRunReveal, useSetLiveRunVisibility,
 } from './live-teacher-api'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -317,7 +317,14 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
   </section>
 
   const latestRunOpenedAt = runs.reduce<string | null>((latest, run) => !latest || Date.parse(run.opened_at) > Date.parse(latest) ? run.opened_at : latest, null)
-  const projector = active && live && <section aria-label={t('dictar.projector')} className={`${card} grid gap-2`}>
+  const screenQuery = useLiveScreen(active && live ? live.id : '')
+  const setScreen = useSetLiveScreen(live?.code ?? '')
+  const screenMode = effectiveScreen(screenQuery.data ?? undefined, latestRunOpenedAt)
+  const slidesMode = !!(active && live) && screenMode === 'slides' && !!(screenQuery.data?.presentation ?? deck.data)
+  const projectSheet = () => {
+    if (live && screenMode !== 'activity') setScreen.mutate({ p_session_id: live.id, p_mode: 'activity', p_slide: screenQuery.data?.slide ?? 1 })
+  }
+  const projector = active && live && <section aria-label={t('dictar.projector')} className={`${card} flex flex-col gap-2 ${slidesMode ? 'min-h-[75vh] flex-1 lg:min-h-0' : ''}`}>
     <div className="flex flex-wrap items-baseline justify-between gap-2"><h2 className="text-lg font-bold">{t('dictar.projector')}</h2><span className="text-sm text-text-muted">{t('dictar.projectorHint')}</span></div>
     <ScreenControl sessionId={live.id} lessonId={lessonId} code={live.code} presentation={deck.data ?? null} latestRunOpenedAt={latestRunOpenedAt} toolbar={null}
       activityStage={<p className="py-4 text-sm text-text-muted">{openRun ? t('dictar.projectorActivity') : t('dictar.projectorNoRun')}</p>} />
@@ -328,9 +335,17 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
 
   return <div className="flex min-h-screen flex-col bg-surface-elevated text-text lg:h-screen">
     {header}
-    {query.isPending || plan.isPending ? <p className="p-8" role="status">{t('live.loading')}</p> : <div className="grid min-h-0 flex-1 gap-4 p-4 lg:grid-cols-[17rem_minmax(0,1fr)_21rem] lg:overflow-hidden">
+    {query.isPending || plan.isPending ? <p className="p-8" role="status">{t('live.loading')}</p> : <div className={`grid min-h-0 flex-1 gap-4 p-4 lg:overflow-hidden ${slidesMode ? 'lg:grid-cols-[17rem_minmax(0,1fr)]' : 'lg:grid-cols-[17rem_minmax(0,1fr)_21rem]'}`}>
       <div className="min-h-0 lg:overflow-y-auto">{blocks.length ? guion : <p className={card}>{t('live.prepareEmpty')}</p>}</div>
-      <main className="grid min-h-0 content-start gap-4 lg:overflow-y-auto">
+      {slidesMode && selected ? <main className="flex min-h-0 flex-col gap-3">
+        <section aria-label={t('blockState.title')} className={`${card} grid shrink-0 gap-2 py-3`}>
+          <p className="truncate text-sm text-text-muted">{kicker} · <span className="font-bold text-text">{selected.title}</span></p>
+          <BlockTimer key={selectedId} compact sessionId={live!.id} itemId={selected.id} plannedMinutes={selected.minutes ?? null}
+            next={followBlock ? { id: followBlock.id, title: followBlock.title } : null} onAdvance={(id) => setPicked(id)} />
+          {message && <p role="alert" className="text-sm">{message}</p>}
+        </section>
+        {projector}
+      </main> :       <main className="grid min-h-0 content-start gap-4 lg:overflow-y-auto">
         {selected && <section aria-label={t('blockState.title')} className={`${card} grid gap-3`}>
           <div className="grid gap-1">
             {kicker && <p className="text-sm text-text-muted">{kicker}</p>}
@@ -343,11 +358,11 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
           {message && <p role="alert" className="text-sm">{message}</p>}
         </section>}
         {interactive}
-        {selectedId && <SheetTeachMain lessonId={lessonId} itemId={selectedId} session={active && live ? { id: live.id, code: live.code } : null} />}
+        {selectedId && <SheetTeachMain key={selectedId} lessonId={lessonId} itemId={selectedId} session={active && live ? { id: live.id, code: live.code } : null} onProject={projectSheet} />}
         {selectedId && !blockSheet.isPending && !blockSheet.sheet && <p className="text-sm text-text-muted">{t('dictar.noSheet')}</p>}
         {projector}
-      </main>
-      <aside aria-label={t('dictar.tools')} className="grid min-h-0 content-start gap-4 lg:overflow-y-auto">
+      </main>}
+      {!slidesMode && <aside aria-label={t('dictar.tools')} className="grid min-h-0 content-start gap-4 lg:overflow-y-auto">
         {selectedId && <SheetPrivateAside lessonId={lessonId} itemId={selectedId} />}
         {selected && (selected.notes || selected.resource) && <section className={`${card} grid gap-1`}>
           <h2 className="font-bold">{t('live.cockpit.notes')}</h2>
@@ -365,7 +380,7 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
             </div>
           </details>}
         </section>
-      </aside>
+      </aside>}
     </div>}
   </div>
 }

@@ -2,7 +2,8 @@ import { useEffect, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router-dom'
 import { isLiveCode, liveSearch } from './live-utils'
-import { useProjectorState } from './live-api'
+import { useProjectorSheet, useProjectorState } from './live-api'
+import { ProjectorSheet } from './ProjectorSheet'
 import { LiveResults } from './LiveResults'
 import { CompareResults, QuizDistribution, RankingList, useRoundCountdown } from './LiveSpecial'
 import { SafeMarkdown } from './SafeMarkdown'
@@ -48,6 +49,10 @@ export function LiveProjectorPage() {
   const run = state.data?.run
   const screen = state.data?.screen
   const mode = state.data?.session.status === 'active' ? effectiveScreen(screen, run?.opened_at) : 'activity'
+  const sheetQuery = useProjectorSheet(code, isLiveCode(code) && state.data?.session.status === 'active' && mode === 'activity')
+  const projected = sheetQuery.data?.data ?? null
+  // La ficha publicada se proyecta si no hay una ronda abierta y se publicó después de la última ronda.
+  const showSheet = !!projected && (!run || (run.status !== 'open' && Date.parse(projected.sheet.published_at) > Date.parse(run.opened_at)))
   const deck = screen?.presentation
   if (mode === 'slides' && deck && screen) {
     const slide = Math.min(Math.max(1, screen.slide), deck.page_count)
@@ -69,6 +74,9 @@ export function LiveProjectorPage() {
     '--text': '#f1f5f9', '--text-muted': '#a3aecb', '--brand-primary': '#818cf8',
     '--brand-soft': '#1b2440',
   } as CSSProperties
+  if (showSheet && projected && sheetQuery.data) return <main style={darkTokens} className="min-h-screen bg-surface p-6 text-text md:p-10">
+    <ProjectorSheet data={projected} receivedAt={sheetQuery.data.receivedAt} code={code} qr={qr} />
+  </main>
   return <main style={darkTokens} className="min-h-screen bg-surface text-text p-6 md:p-10">
     <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-7xl flex-col gap-10">
       <header className="flex flex-wrap items-start justify-between gap-6 border-b border-border pb-6">

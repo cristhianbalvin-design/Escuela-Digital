@@ -62,6 +62,18 @@ export function useProjectorState(code: string) {
   })
 }
 
+/** Ficha publicada vista desde el proyector (solo la parte pública), con el tiempo del bloque y el prompt enfocado. */
+export function useProjectorSheet(code: string, enabled: boolean) {
+  // Comparte prefijo con useProjectorState: el aviso en tiempo real de esa consulta también refresca esta.
+  const key = ['live', 'projector', code, 'sheet'] as const
+  return useQuery({
+    queryKey: key, enabled: !!supabase && enabled,
+    queryFn: async () => ({ data: await liveRpc('get_projector_sheet', { p_code: code }), receivedAt: Date.now() }),
+    refetchInterval: () => document.hidden ? false : 4000,
+    retry: false,
+  })
+}
+
 export function useCoursePrepStatus(versionId: string | undefined) {
   return useQuery({
     queryKey: ['course-prep-status', versionId],
