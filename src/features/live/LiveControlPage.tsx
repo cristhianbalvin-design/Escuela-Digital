@@ -119,6 +119,8 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
   const currentSetId = current ? activities.find((item) => item.id === current.activity_id)?.set_id ?? null : null
   const currentSet = setsQuery.data?.find((set) => set.id === currentSetId)
   const setQuestions = blockActs.filter((item) => item.set_id === currentSetId)
+  // Rondas ya lanzadas del conjunto actual: «Reiniciar conjunto» las borra todas para volver a empezar desde la primera pregunta.
+  const setRuns = currentSetId ? runs.filter((run) => activities.some((item) => item.set_id === currentSetId && coveredIds(run).includes(item.id))) : []
   const currentIndex = current && current.type !== 'static_quiz' ? setQuestions.findIndex((item) => item.id === current.activity_id) : -1
   const quizActs = setQuestions.filter((item) => item.type === 'quiz')
   const quizIndex = current ? quizActs.findIndex((item) => item.id === current.activity_id) : -1
@@ -295,6 +297,10 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
       {active && current && <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => void act(() => visibility.mutateAsync({ p_run_id: current.id, p_show_results: !current.show_results }))}>{t(current.show_results ? 'live.hideResults' : 'live.showResults')}</Button>}
       {active && current && (current.type === 'quiz' || current.type === 'static_quiz' || current.type === 'compare') && <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => void act(() => reveal.mutateAsync({ p_run_id: current.id, p_reveal: !current.reveal }))}>{t(current.reveal ? 'live.hideReveal' : current.type === 'compare' ? 'live.revealModels' : 'live.revealCorrect')}</Button>}
       {active && current?.type === 'quiz' && !formative && <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => void act(() => ranking.mutateAsync({ p_run_id: current.id, p_show: !current.show_ranking }))}>{t(current.show_ranking ? 'live.hideRanking' : 'live.showRanking')}</Button>}
+      {active && current && <Button variant="secondary" className="min-h-11" disabled={busy}
+        onClick={() => { if (window.confirm(t('dictar.confirmResetQuestion'))) void act(async () => { await resetRun.mutateAsync({ p_run_id: current.id }); await sessionPlan.refetch() }) }}>{t(currentSet && setQuestions.length > 1 ? 'dictar.resetQuestion' : 'live.resetRun')}</Button>}
+      {active && currentSet && setRuns.length > 1 && <Button variant="secondary" className="min-h-11" disabled={busy}
+        onClick={() => { if (window.confirm(t('dictar.confirmResetSet', { title: currentSet.title }))) void act(async () => { for (const run of setRuns) await resetRun.mutateAsync({ p_run_id: run.id }); await sessionPlan.refetch() }) }}>{t('dictar.resetSet', { title: currentSet.title })}</Button>}
     </div>}
     {otherSession && !stale && <p className="text-sm text-text-muted">{t('live.endOtherToStart')}</p>}
     {next && current && <p className="text-sm text-text-muted">{t('live.cockpit.after', { title: nextTitle })}</p>}
@@ -375,8 +381,8 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
           {selectedId && <details className="rounded-control border border-border p-2"><summary className="min-h-11 cursor-pointer content-center font-semibold">{t('live.cockpit.tools')}</summary><LiveControlPanel embedded offeringId={offeringId} lessonId={lessonId} launchPlanItemId={selectedId} /></details>}
           {active && <details className="rounded-control border border-border p-2"><summary className="min-h-11 cursor-pointer content-center font-semibold text-text-muted">{t('dictar.more')}</summary>
             <div className="mt-2 grid gap-2">
-              {current && <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => { if (window.confirm(t('live.confirmResetRun'))) void act(() => resetRun.mutateAsync({ p_run_id: current.id })) }}>{t('live.resetRun')}</Button>}
-              <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => { if (window.confirm(t('live.confirmResetAll'))) void act(() => resetAll.mutateAsync({ p_session_id: live!.id })) }}>{t('live.resetAll')}</Button>
+              {current && <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => { if (window.confirm(t('live.confirmResetRun'))) void act(async () => { await resetRun.mutateAsync({ p_run_id: current.id }); await sessionPlan.refetch() }) }}>{t('live.resetRun')}</Button>}
+              <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => { if (window.confirm(t('live.confirmResetAll'))) void act(async () => { await resetAll.mutateAsync({ p_session_id: live!.id }); await sessionPlan.refetch() }) }}>{t('live.resetAll')}</Button>
             </div>
           </details>}
         </section>

@@ -44,6 +44,8 @@ export const resources = {
         stepsTitle: 'Pasos · lo que hacen los alumnos', promptsTitle: 'Prompts para proyectar o dictar', resourcesTitle: 'Recursos y entregable',
         publishedAt: 'Publicada a los alumnos · {{time}}', noSheet: 'Este bloque no tiene ficha: puedes dictarlo con la presentación.',
         startClassHint: 'La clase aún no empezó. Al iniciarla, los alumnos podrán entrar con el código.', now: 'Hora', vsPlan: 'previsto {{time}}',
+        resetQuestion: 'Reiniciar esta pregunta', confirmResetQuestion: '¿Borrar las respuestas de esta pregunta? Podrás lanzarla de nuevo. No se puede deshacer.',
+        resetSet: 'Reiniciar «{{title}}» completo', confirmResetSet: '¿Borrar las respuestas de todas las preguntas de «{{title}}»? Volverá a empezar desde la primera. No se puede deshacer.',
       },
       blockState: {
         title: 'Estado y tiempo del bloque', planned: 'previsto {{minutes}} min', over: 'excedido {{time}}', error: 'No se pudo actualizar el bloque. Inténtalo otra vez.',
@@ -1396,6 +1398,8 @@ export const resources = {
         stepsTitle: 'Steps · what students do', promptsTitle: 'Prompts to project or read out', resourcesTitle: 'Resources and deliverable',
         publishedAt: 'Published to students · {{time}}', noSheet: 'This block has no sheet: you can teach it with the slides.',
         startClassHint: 'The class has not started. Once started, students can join with the code.', now: 'Time', vsPlan: 'planned {{time}}',
+        resetQuestion: 'Reset this question', confirmResetQuestion: 'Delete the answers to this question? You can launch it again. This cannot be undone.',
+        resetSet: 'Reset all of “{{title}}”', confirmResetSet: 'Delete the answers to every question in “{{title}}”? It will start again from the first one. This cannot be undone.',
       },
       blockState: {
         title: 'Block status and time', planned: 'planned {{minutes}} min', over: 'over by {{time}}', error: 'The block could not be updated. Try again.',
