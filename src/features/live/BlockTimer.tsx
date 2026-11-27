@@ -8,9 +8,9 @@ import { useSessionBlocks, useSetBlockState } from './live-teacher-api'
  * Estado y cronómetro persistente del bloque seleccionado (el tiempo vive en el servidor).
  * Con `next`, «Terminar» se convierte en «Terminar y pasar al siguiente»: cierra este bloque, inicia el siguiente y lo selecciona.
  */
-export function BlockTimer({ sessionId, itemId, plannedMinutes, next, onAdvance, compact = false }: {
+export function BlockTimer({ sessionId, itemId, plannedMinutes, next, onAdvance, onFinished, compact = false }: {
   sessionId: string; itemId: string; plannedMinutes: number | null
-  next?: { id: string; title: string } | null; onAdvance?: (id: string) => void; compact?: boolean
+  next?: { id: string; title: string } | null; onAdvance?: (id: string) => void; onFinished?: (id: string) => void; compact?: boolean
 }) {
   const { t } = useTranslation()
   const blocks = useSessionBlocks(sessionId)
@@ -31,13 +31,13 @@ export function BlockTimer({ sessionId, itemId, plannedMinutes, next, onAdvance,
   const percent = planned ? Math.min(100, Math.round(seconds * 100 / planned)) : 0
   async function run(action: BlockAction) {
     setError(false)
-    try { await change.mutateAsync({ itemId, action }) } catch { setError(true) }
+    try { await change.mutateAsync({ itemId, action }); if (action === 'finish') onFinished?.(itemId) } catch { setError(true) }
   }
   async function advance() {
     if (!next) return
     setError(false)
     try {
-      if (entry?.state === 'active' || entry?.state === 'paused') await change.mutateAsync({ itemId, action: 'finish' })
+      if (entry?.state === 'active' || entry?.state === 'paused') { await change.mutateAsync({ itemId, action: 'finish' }); onFinished?.(itemId) }
       await change.mutateAsync({ itemId: next.id, action: 'start' })
       onAdvance?.(next.id)
     } catch { setError(true) }

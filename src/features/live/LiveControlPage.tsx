@@ -4,7 +4,7 @@ import { liveSearch } from './live-utils'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui'
 import { useAuth } from '@/features/auth'
-import { useLessonPlan, usePlanProgress, useSessionPlan } from '@/features/planning/planning-api'
+import { useLessonPlan, useMarkPlan, usePlanProgress, useSessionPlan } from '@/features/planning/planning-api'
 import { LiveControlPanel, RunView } from './LiveControlPanel'
 import { useRoundCountdown } from './LiveSpecial'
 import { SessionNav } from './SessionNav'
@@ -192,7 +192,9 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
   const selIndex = blocks.findIndex((block) => block.id === selectedId)
   const followBlock = selIndex >= 0 ? blocks[selIndex + 1] : undefined
   const blockSheet = useBlockSheet(lessonId, selectedId)
-  const isDone = (id: string) => done.has(id) || stateOf(id) === 'done'
+  // «Hecho» es el avance de la edición: se marca a mano, al terminar el bloque o al cerrar sus actividades interactivas.
+  const isDone = (id: string) => done.has(id)
+  const markPlan = useMarkPlan(offeringId, lessonId)
   const doneCount = blocks.filter((block) => isDone(block.id)).length
   const endOf = (start: string | null | undefined, minutes: number | null | undefined) => {
     if (!start || !minutes) return null
@@ -240,8 +242,14 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
     <ol className="grid gap-0.5">{blocks.map((block) => {
       const isNow = block.id === selectedId; const st = stateOf(block.id); const finished = isDone(block.id); const pending = pendingIn(block.id)
       const dot = finished ? 'border-emerald-700 bg-emerald-700' : st === 'active' ? 'border-brand bg-brand ring-2 ring-brand/30' : st === 'skipped' ? 'border-text-muted bg-surface-elevated' : st === 'paused' ? 'border-brand' : 'border-border'
-      return <li key={block.id}><button type="button" aria-pressed={isNow} onClick={() => setPicked(block.id)}
-        className={`flex min-h-11 w-full items-center gap-2 rounded-control border p-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand ${isNow ? 'border-brand bg-brand-soft' : 'border-transparent hover:bg-surface-elevated'}`}>
+      return <li key={block.id} className={`flex items-stretch rounded-control border ${isNow ? 'border-brand bg-brand-soft' : 'border-transparent hover:bg-surface-elevated'}`}>
+        <label className="flex min-h-11 w-9 shrink-0 cursor-pointer items-center justify-center" title={t(finished ? 'dictar.unmarkDone' : 'dictar.markDone')}>
+          <input type="checkbox" className="size-4 accent-emerald-700" checked={finished} disabled={markPlan.isPending}
+            aria-label={`${t(finished ? 'dictar.unmarkDone' : 'dictar.markDone')}: ${block.title}`}
+            onChange={(event) => markPlan.mutate({ id: block.id, done: event.target.checked })} />
+        </label>
+        <button type="button" aria-pressed={isNow} onClick={() => setPicked(block.id)}
+        className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-control py-2 pr-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand">
         <span aria-hidden="true" className={`size-3 shrink-0 rounded-full border-2 ${dot}`} />
         <span className="w-10 shrink-0 text-xs tabular-nums text-text-muted">{block.starts_at?.slice(0, 5) ?? ''}</span>
         <span className="min-w-0 flex-1">
@@ -347,7 +355,7 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
         <section aria-label={t('blockState.title')} className={`${card} grid shrink-0 gap-2 py-3`}>
           <p className="truncate text-sm text-text-muted">{kicker} · <span className="font-bold text-text">{selected.title}</span></p>
           <BlockTimer key={selectedId} compact sessionId={live!.id} itemId={selected.id} plannedMinutes={selected.minutes ?? null}
-            next={followBlock ? { id: followBlock.id, title: followBlock.title } : null} onAdvance={(id) => setPicked(id)} />
+            next={followBlock ? { id: followBlock.id, title: followBlock.title } : null} onAdvance={(id) => setPicked(id)} onFinished={(id) => markPlan.mutate({ id, done: true })} />
           {message && <p role="alert" className="text-sm">{message}</p>}
         </section>
         {projector}
@@ -359,7 +367,7 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
             {blockSheet.sheet?.objective.trim() ? <p className="text-text-muted">{blockSheet.sheet.objective}</p> : selected.resource ? <p className="text-text-muted">{selected.resource}</p> : null}
           </div>
           {active && live ? <BlockTimer key={selectedId} sessionId={live.id} itemId={selected.id} plannedMinutes={selected.minutes ?? null}
-            next={followBlock ? { id: followBlock.id, title: followBlock.title } : null} onAdvance={(id) => setPicked(id)} />
+            next={followBlock ? { id: followBlock.id, title: followBlock.title } : null} onAdvance={(id) => setPicked(id)} onFinished={(id) => markPlan.mutate({ id, done: true })} />
             : relevant && !active ? <p className="font-semibold">{t('live.ended')}</p> : null}
           {message && <p role="alert" className="text-sm">{message}</p>}
         </section>}
