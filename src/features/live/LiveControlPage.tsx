@@ -10,7 +10,8 @@ import { useRoundCountdown } from './LiveSpecial'
 import { SessionNav } from './SessionNav'
 import { ScreenControl } from './LivePresentation'
 import { BlockTimer } from './BlockTimer'
-import { SheetPanel } from './SheetPanel'
+import { SheetPrivateAside, SheetTeachMain } from './SheetPanel'
+import { useBlockSheet } from './sheet-hooks'
 import { TeacherNotesAside } from './LiveNotes'
 import { useLessonPresentation } from './presentation'
 import { liveRpc } from './live-api'
@@ -100,7 +101,8 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
   const pendingIn = (id: string) => activities.filter((item) => item.plan_item_id === id && !launched(item.id)).length
   const openRun = runs.find((run) => run.status === 'open')
   const openBlock = openRun ? activities.find((item) => item.id === openRun.activity_id)?.plan_item_id ?? null : null
-  const selectedId = picked ?? openBlock ?? blocks.find((block) => pendingIn(block.id) > 0)?.id ?? blocks[0]?.id ?? null
+  const runningBlock = blockStates.data?.blocks.find((entry) => entry.state === 'active')?.item_id ?? null
+  const selectedId = picked ?? openBlock ?? runningBlock ?? blocks.find((block) => pendingIn(block.id) > 0)?.id ?? blocks[0]?.id ?? null
   const selected = blocks.find((block) => block.id === selectedId)
   const blockActs = activities.filter((item) => item.plan_item_id === selectedId)
   const blockRuns = runs.filter((run) => blockActs.some((item) => coveredIds(run).includes(item.id)))
@@ -185,60 +187,77 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
     ...(current.type === 'quiz' && !formative ? [{ label: t('live.ranking'), on: current.show_ranking }] : []),
   ] : []
 
-  const toolbar = <>
-    <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-      <span className="font-mono font-bold" aria-label={t('live.code')} aria-live="polite">{relevant ? live!.code : '--'}</span>
-      <span className="text-sm tabular-nums" aria-live="polite">{t('live.cockpit.connected')}: {participants}</span>
-      <SessionNav lessonId={lessonId} offeringId={offeringId} current="teach" />
+  const selIndex = blocks.findIndex((block) => block.id === selectedId)
+  const followBlock = selIndex >= 0 ? blocks[selIndex + 1] : undefined
+  const blockSheet = useBlockSheet(lessonId, selectedId)
+  const isDone = (id: string) => done.has(id) || stateOf(id) === 'done'
+  const doneCount = blocks.filter((block) => isDone(block.id)).length
+  const endOf = (start: string | null | undefined, minutes: number | null | undefined) => {
+    if (!start || !minutes) return null
+    const total = Number(start.slice(0, 2)) * 60 + Number(start.slice(3, 5)) + minutes
+    return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+  }
+  const [clock, setClock] = useState(() => new Date())
+  useEffect(() => { const id = window.setInterval(() => setClock(new Date()), 30000); return () => window.clearInterval(id) }, [])
+  const card = 'rounded-control border border-border bg-surface p-4'
+  const stat = (label: string, value: string, extra?: string) => <div className="flex flex-col items-end leading-tight">
+    <span className="text-xs text-text-muted">{label}</span>
+    <span className="text-lg font-extrabold tabular-nums">{value}{extra && <span className="ml-1 text-xs font-semibold text-text-muted">{extra}</span>}</span>
+  </div>
+
+  const header = <header className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-surface px-4 py-2">
+    <SessionNav lessonId={lessonId} offeringId={offeringId} current="teach" />
+    <div className="flex flex-1 flex-wrap items-center justify-end gap-4">
+      {stat(t('live.code'), relevant ? live!.code : '--')}
+      {stat(t('live.cockpit.connected'), String(participants))}
+      {stat(t('dictar.now'), clock.toLocaleTimeString(i18n.resolvedLanguage, { hour: '2-digit', minute: '2-digit' }), selected?.starts_at ? t('dictar.vsPlan', { time: selected.starts_at.slice(0, 5) }) : undefined)}
       {relevant && <Button variant="secondary" className="min-h-11" onClick={() => window.open(`/clase/${live!.code}/proyector${liveSearch()}`, '_blank', 'noopener,noreferrer')}>{t('live.openProjector')}</Button>}
-      {active && <Button variant="destructive" className="min-h-11" disabled={busy} onClick={() => { if (window.confirm(t('live.confirmEnd'))) void act(() => end.mutateAsync({ p_session_id: live!.id })) }}>{t('live.endClass')}</Button>}
-      <details className="relative">
-        <summary className="flex min-h-11 cursor-pointer items-center rounded-control border border-border px-3 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand">{t('live.cockpit.blocks')}</summary>
-        <aside aria-label={t('live.prepareTitle')} className="absolute right-0 z-20 mt-1 max-h-[70vh] w-80 max-w-[90vw] overflow-y-auto rounded-control border border-border bg-surface p-3 shadow-lg">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-muted">{t('live.cockpit.script', { done: blocks.filter((block) => done.has(block.id)).length, total: blocks.length })}</p>
-        <ol className="grid gap-0.5">{blocks.map((block) => {
-          const isNow = block.id === selectedId; const isDone = done.has(block.id); const pending = pendingIn(block.id)
-          return <li key={block.id}><button type="button" aria-pressed={isNow} onClick={() => setPicked(block.id)}
-            className={`flex min-h-11 w-full items-center gap-2.5 rounded-control border p-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand ${isNow ? 'border-brand bg-brand-soft' : 'border-transparent hover:bg-surface-elevated'}`}>
-            <span aria-hidden="true" className={`size-4 shrink-0 rounded-full border-2 ${isDone ? 'border-brand bg-brand' : isNow ? 'border-brand' : 'border-border'}`} />
-            <span className="w-10 shrink-0 text-xs tabular-nums text-text-muted">{block.starts_at?.slice(0, 5) ?? ''}</span>
-            <span className={`min-w-0 flex-1 text-sm ${isDone ? 'text-text-muted' : ''} ${isNow ? 'font-semibold' : ''}`}>{block.title}{isDone && <span className="sr-only"> · {t('live.cockpit.done')}</span>}</span>
-            {stateOf(block.id) && <span className="shrink-0 rounded-full border border-border px-1.5 text-xs">{t(`blockState.state.${stateOf(block.id)}`)}</span>}
-            {pending > 0 && <span className="shrink-0 rounded-full border border-border px-1.5 text-xs font-semibold">{pending}</span>}
-          </button></li>
-        })}</ol>
-        </aside>
-      </details>
       {relevant && <details className="relative">
         <summary className="flex min-h-11 cursor-pointer items-center rounded-control border border-border px-3 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand">{t('live.cockpit.access')}</summary>
         <aside aria-label={t('live.cockpit.screens')} className="absolute right-0 z-20 mt-1 grid max-h-[70vh] w-80 max-w-[90vw] gap-3 overflow-y-auto rounded-control border border-border bg-surface p-3 shadow-lg">
-        {relevant && <div className="grid gap-2">
           <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">{t('live.cockpit.projectorView')}</p>
           <ProjectorPreview title={t('live.cockpit.projectorView')} src={`/clase/${live!.code}/proyector${liveSearch()}`} />
-        </div>}
-        {relevant && <div className="grid gap-3 rounded-control border border-border p-3">
           <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">{t('live.cockpit.join')}</p>
           <div className="flex items-center gap-3">
             {qr && <img src={qr} className="size-24 shrink-0 rounded-control bg-white p-1" alt={t('live.qrAlt', { code: live!.code })} />}
             <p className="min-w-0 break-all text-sm text-text-muted">{link}</p>
           </div>
           <Button variant="secondary" className="min-h-11" onClick={() => void navigator.clipboard.writeText(link).then(() => setMessage(t('live.linkCopied'))).catch(() => setMessage(t('live.copyError')))}>{t('live.copyLink')}</Button>
-        </div>}
-        {selected && (selected.notes || selected.resource) && <div className="grid gap-1 rounded-control border border-border p-3">
-          <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">{t('live.cockpit.notes')}</p>
-          {selected.resource && <p className="text-sm font-semibold">{selected.resource}</p>}
-          {selected.notes && <p className="whitespace-pre-wrap text-sm">{selected.notes}</p>}
-        </div>}
         </aside>
       </details>}
+      {active && <Button variant="destructive" className="min-h-11" disabled={busy} onClick={() => { if (window.confirm(t('live.confirmEnd'))) void act(() => end.mutateAsync({ p_session_id: live!.id })) }}>{t('live.endClass')}</Button>}
     </div>
-  </>
+  </header>
+
+  const guion = <aside aria-label={t('live.prepareTitle')} className={`${card} grid content-start gap-2 lg:sticky lg:top-0`}>
+    <div className="flex items-baseline justify-between gap-2">
+      <h2 className="font-bold">{t('dictar.guion')}</h2>
+      <span className="text-xs text-text-muted">{t('dictar.guionProgress', { done: doneCount, total: blocks.length })}</span>
+    </div>
+    <div className="h-1.5 rounded-full bg-border" aria-hidden="true"><div className="h-1.5 rounded-full bg-brand" style={{ width: `${blocks.length ? Math.round(doneCount * 100 / blocks.length) : 0}%` }} /></div>
+    <ol className="grid gap-0.5">{blocks.map((block) => {
+      const isNow = block.id === selectedId; const st = stateOf(block.id); const finished = isDone(block.id); const pending = pendingIn(block.id)
+      const dot = finished ? 'border-emerald-700 bg-emerald-700' : st === 'active' ? 'border-brand bg-brand ring-2 ring-brand/30' : st === 'skipped' ? 'border-text-muted bg-surface-elevated' : st === 'paused' ? 'border-brand' : 'border-border'
+      return <li key={block.id}><button type="button" aria-pressed={isNow} onClick={() => setPicked(block.id)}
+        className={`flex min-h-11 w-full items-center gap-2 rounded-control border p-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand ${isNow ? 'border-brand bg-brand-soft' : 'border-transparent hover:bg-surface-elevated'}`}>
+        <span aria-hidden="true" className={`size-3 shrink-0 rounded-full border-2 ${dot}`} />
+        <span className="w-10 shrink-0 text-xs tabular-nums text-text-muted">{block.starts_at?.slice(0, 5) ?? ''}</span>
+        <span className="min-w-0 flex-1">
+          <span className={`block text-sm leading-snug ${finished || st === 'skipped' ? 'text-text-muted line-through' : ''} ${isNow ? 'font-bold' : ''}`}>{block.title}</span>
+          <span className="block text-xs text-text-muted">{t(`planning.kinds.${block.kind}`)}{block.minutes ? ` · ${block.minutes} min` : ''}{st ? ` · ${t(`blockState.state.${st}`)}` : ''}</span>
+        </span>
+        {pending > 0 && <span className="shrink-0 rounded-full border border-border px-1.5 text-xs font-semibold" title={t('dictar.interactive')}>{pending}</span>}
+      </button></li>
+    })}</ol>
+  </aside>
+
   const stageRun = openRun ?? current
   const openItem = stageRun ? activities.find((item) => item.id === stageRun.activity_id) : undefined
   const openSet = openItem ? setsQuery.data?.find((set) => set.id === openItem.set_id) : undefined
-  const activityStage = stageRun ? <div className="grid h-full min-h-0 gap-3 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-    <div className="min-h-0 overflow-y-auto rounded-control border border-border bg-surface p-4">
-      <h1 className="mb-3 text-2xl font-bold">{stageRun.title}</h1>
+  const hasInteractive = blockActs.length > 0 || !!(openRun && !blockRuns.includes(openRun))
+  const runStage = stageRun ? <div className="grid gap-3 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+    <div className="min-w-0">
+      <h3 className="mb-3 text-xl font-bold">{stageRun.title}</h3>
       {stageRun.status === 'open' && <div className="mb-3 flex items-center gap-3">
         {stageRun.type === 'quiz' && <Countdown run={stageRun} />}
         <div className="min-w-0 flex-1"><p className="text-lg font-semibold" aria-live="polite">{t('live.responseCount', { count: stageRun.results.responses.length, total: participants, percent: participants ? Math.min(100, Math.round(stageRun.results.responses.length * 100 / participants)) : 0 })}</p>
@@ -248,78 +267,106 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
     </div>
     <TeacherNotesAside lessonId={lessonId} setId={openItem?.set_id ?? null} setTitle={openSet?.title ?? null}
       questionId={stageRun.type === 'static_quiz' ? null : openItem?.id ?? null} questionTitle={stageRun.type === 'static_quiz' ? null : openItem?.title ?? null} />
-  </div> : <div className="flex h-full items-center justify-center text-lg text-text-muted">{t('live.cockpit.noOpenRound')}</div>
+  </div> : null
 
-  return <div className="flex h-screen min-h-0 flex-col overflow-hidden p-2 text-text">
-    {query.isPending || plan.isPending ? <p className="p-8" role="status">{t('live.loading')}</p> : <main className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
-      {active && live ? <ScreenControl sessionId={live.id} lessonId={lessonId} code={live.code} presentation={deck.data ?? null}
-        latestRunOpenedAt={runs.reduce<string | null>((latest, run) => !latest || Date.parse(run.opened_at) > Date.parse(latest) ? run.opened_at : latest, null)}
-        toolbar={toolbar} activityStage={activityStage} /> : <>
-        <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border pb-2">{toolbar}</header>
-        {otherSession && <section role="status" className="w-full shrink-0 rounded-control border-2 border-amber-600 bg-amber-50 p-3 text-amber-950">
-          <p className="font-bold">{t('live.otherLessonActive')}</p>
-          <p>{t('live.otherLessonDetails', { title: otherLessonTitle, code: otherSession.code })}</p>
-          <p>{t('live.otherLessonOpened', { date: new Date(otherSession.created_at).toLocaleString(i18n.resolvedLanguage), relative: relativeTime })}</p>
-          {stale && <p className="font-semibold">{t('live.otherLessonStale')}</p>}
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Button variant="destructive" className="min-h-11" disabled={busy} onClick={() => {
-              if (window.confirm(t('live.confirmEndOther', { code: otherSession.code }))) void act(async () => {
-                await end.mutateAsync({ p_session_id: otherSession.id })
-                await query.refetch()
-              })
-            }}>{t('live.endOtherClass')}</Button>
-            <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => navigate(`/clase-control/${offeringId}/${otherSession.lesson_id}${liveSearch()}`)}>{t('live.goToOtherClass')}</Button>
+  const interactive = (hasInteractive || !session || otherSession) && <section aria-label={t('dictar.interactive')} className={`${card} grid gap-3`}>
+    {hasInteractive && <div className="flex flex-wrap items-center gap-2">
+      <h2 className="text-lg font-bold">{t('dictar.interactive')}{currentSet ? ` · ${currentSet.title}` : ''}{current && currentIndex >= 0 && setQuestions.length > 1 ? ` · ${t('live.cockpit.question', { number: currentIndex + 1, total: setQuestions.length })}` : ''}</h2>
+      <ol aria-label={t('live.cockpit.steps')} className="flex flex-wrap gap-1 text-xs font-semibold">{chips.map((chip) => <li key={chip.label} aria-current={chip.now ? 'step' : undefined} className={`rounded-full border px-2 py-1 ${chip.now ? 'border-brand bg-brand text-white' : chip.on ? 'border-brand text-brand' : 'border-border text-text-muted'}`}>{chip.label}</li>)}</ol>
+    </div>}
+    {otherSession && <div role="status" className="rounded-control border-2 border-amber-600 bg-amber-50 p-3 text-amber-950">
+      <p className="font-bold">{t('live.otherLessonActive')}</p>
+      <p>{t('live.otherLessonDetails', { title: otherLessonTitle, code: otherSession.code })}</p>
+      <p>{t('live.otherLessonOpened', { date: new Date(otherSession.created_at).toLocaleString(i18n.resolvedLanguage), relative: relativeTime })}</p>
+      {stale && <p className="font-semibold">{t('live.otherLessonStale')}</p>}
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Button variant="destructive" className="min-h-11" disabled={busy} onClick={() => {
+          if (window.confirm(t('live.confirmEndOther', { code: otherSession.code }))) void act(async () => { await end.mutateAsync({ p_session_id: otherSession.id }); await query.refetch() })
+        }}>{t('live.endOtherClass')}</Button>
+        <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => navigate(`/clase-control/${offeringId}/${otherSession.lesson_id}${liveSearch()}`)}>{t('live.goToOtherClass')}</Button>
+      </div>
+    </div>}
+    {!session && <p className="text-sm text-text-muted">{t('dictar.startClassHint')}</p>}
+    {(primary || hasInteractive) && <div className="flex flex-wrap items-stretch gap-2">
+      {primary && <Button className="min-h-11 flex-[1_1_14rem] text-lg font-bold" disabled={busy || primary.disabled} onClick={primary.run}>{primary.label}</Button>}
+      {!session && deck.data && <Button variant="secondary" className="min-h-11" disabled={busy}
+        onClick={() => void act(async () => { const s = await ensureSession(); await liveRpc('set_live_screen', { p_session_id: s.id, p_mode: 'slides', p_slide: 1 }); void ping(s.code) })}>{t('live.screen.startWithSlides')}</Button>}
+      {active && current?.status === 'open' && <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => void act(() => pause.mutateAsync({ p_run_id: current.id, p_paused: !current.paused }))}>{t(current.paused ? 'live.resumeRound' : 'live.pauseRound')}</Button>}
+      {active && current && <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => void act(() => visibility.mutateAsync({ p_run_id: current.id, p_show_results: !current.show_results }))}>{t(current.show_results ? 'live.hideResults' : 'live.showResults')}</Button>}
+      {active && current && (current.type === 'quiz' || current.type === 'static_quiz' || current.type === 'compare') && <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => void act(() => reveal.mutateAsync({ p_run_id: current.id, p_reveal: !current.reveal }))}>{t(current.reveal ? 'live.hideReveal' : current.type === 'compare' ? 'live.revealModels' : 'live.revealCorrect')}</Button>}
+      {active && current?.type === 'quiz' && !formative && <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => void act(() => ranking.mutateAsync({ p_run_id: current.id, p_show: !current.show_ranking }))}>{t(current.show_ranking ? 'live.hideRanking' : 'live.showRanking')}</Button>}
+    </div>}
+    {otherSession && !stale && <p className="text-sm text-text-muted">{t('live.endOtherToStart')}</p>}
+    {next && current && <p className="text-sm text-text-muted">{t('live.cockpit.after', { title: nextTitle })}</p>}
+    {(!session || stale) && <details className="text-sm">
+      <summary className="min-h-11 cursor-pointer content-center text-text-muted">{t('live.cockpit.accessOptions')} · {t(accessMode === 'both' ? 'live.accessBoth' : accessMode === 'enrolled' ? 'live.accessEnrolled' : 'live.accessGuest')}{askName ? ` · ${t('live.cockpit.nameRequired')}` : ''}</summary>
+      <div className="mt-3 grid gap-3">
+        <fieldset className="grid gap-2"><legend className="mb-1 font-semibold">{t('live.cockpit.whoJoins')}</legend>
+          {(['both', 'enrolled', 'guest'] as const).map((mode) => <label key={mode} className={`flex cursor-pointer items-start gap-3 rounded-control border p-3 ${accessMode === mode ? 'border-brand bg-brand-soft' : 'border-border'}`}>
+            <input type="radio" name="access-mode" className="mt-1" checked={accessMode === mode} onChange={() => setAccessMode(mode)} />
+            <span><span className="block font-semibold">{t(mode === 'both' ? 'live.accessBoth' : mode === 'enrolled' ? 'live.accessEnrolled' : 'live.accessGuest')}{mode === 'both' ? ` · ${t('live.cockpit.recommended')}` : ''}</span>
+              <span className="block text-text-muted">{t(`live.cockpit.accessHelp.${mode}`)}</span></span></label>)}
+        </fieldset>
+        {accessMode !== 'enrolled' && <div className="grid gap-2">
+          <label className="flex items-center gap-2"><input type="checkbox" checked={askName} onChange={(event) => setAskName(event.target.checked)} />{t('live.askName')}</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={askCompany} onChange={(event) => setAskCompany(event.target.checked)} />{t('live.askCompany')}</label>
+        </div>}
+      </div>
+    </details>}
+    {runStage}
+  </section>
+
+  const latestRunOpenedAt = runs.reduce<string | null>((latest, run) => !latest || Date.parse(run.opened_at) > Date.parse(latest) ? run.opened_at : latest, null)
+  const projector = active && live && <section aria-label={t('dictar.projector')} className={`${card} grid gap-2`}>
+    <div className="flex flex-wrap items-baseline justify-between gap-2"><h2 className="text-lg font-bold">{t('dictar.projector')}</h2><span className="text-sm text-text-muted">{t('dictar.projectorHint')}</span></div>
+    <ScreenControl sessionId={live.id} lessonId={lessonId} code={live.code} presentation={deck.data ?? null} latestRunOpenedAt={latestRunOpenedAt} toolbar={null}
+      activityStage={<p className="py-4 text-sm text-text-muted">{openRun ? t('dictar.projectorActivity') : t('dictar.projectorNoRun')}</p>} />
+  </section>
+
+  const kicker = [selIndex >= 0 ? t('dictar.blockOf', { number: selIndex + 1, total: blocks.length }) : '', selected ? t(`planning.kinds.${selected.kind}`) : '',
+    selected?.starts_at ? `${selected.starts_at.slice(0, 5)}${endOf(selected.starts_at, selected.minutes) ? `–${endOf(selected.starts_at, selected.minutes)}` : ''}` : ''].filter(Boolean).join(' · ')
+
+  return <div className="flex min-h-screen flex-col bg-surface-elevated text-text lg:h-screen">
+    {header}
+    {query.isPending || plan.isPending ? <p className="p-8" role="status">{t('live.loading')}</p> : <div className="grid min-h-0 flex-1 gap-4 p-4 lg:grid-cols-[17rem_minmax(0,1fr)_21rem] lg:overflow-hidden">
+      <div className="min-h-0 lg:overflow-y-auto">{blocks.length ? guion : <p className={card}>{t('live.prepareEmpty')}</p>}</div>
+      <main className="grid min-h-0 content-start gap-4 lg:overflow-y-auto">
+        {selected && <section aria-label={t('blockState.title')} className={`${card} grid gap-3`}>
+          <div className="grid gap-1">
+            {kicker && <p className="text-sm text-text-muted">{kicker}</p>}
+            <h1 className="text-2xl font-extrabold leading-tight md:text-3xl">{selected.title}</h1>
+            {blockSheet.sheet?.objective.trim() ? <p className="text-text-muted">{blockSheet.sheet.objective}</p> : selected.resource ? <p className="text-text-muted">{selected.resource}</p> : null}
           </div>
+          {active && live ? <BlockTimer key={selectedId} sessionId={live.id} itemId={selected.id} plannedMinutes={selected.minutes ?? null}
+            next={followBlock ? { id: followBlock.id, title: followBlock.title } : null} onAdvance={(id) => setPicked(id)} />
+            : relevant && !active ? <p className="font-semibold">{t('live.ended')}</p> : null}
+          {message && <p role="alert" className="text-sm">{message}</p>}
         </section>}
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
-          <h1 className="text-2xl font-bold">{selected?.title ?? t('live.prepareEmpty')}</h1>
-          {!session && deck.data && <Button variant="secondary" className="min-h-11" disabled={busy}
-            onClick={() => void act(async () => { const s = await ensureSession(); await liveRpc('set_live_screen', { p_session_id: s.id, p_mode: 'slides', p_slide: 1 }); void ping(s.code) })}>{t('live.screen.startWithSlides')}</Button>}
-        </div>
-      </>}
-      <div className="max-h-[30vh] shrink-0 overflow-y-auto">
-        {active && live && selectedId && <div className="mb-2"><BlockTimer key={selectedId} sessionId={live.id} itemId={selectedId} plannedMinutes={selected?.minutes ?? null} /></div>}
-        <div className="mb-1 flex flex-wrap items-center gap-2 text-sm">
-          <p className="font-semibold text-brand">{selected ? `${t('live.cockpit.now')} - ${selected.title}` : t('live.prepareEmpty')}{currentSet ? ` - ${currentSet.title}` : ''}{current && currentIndex >= 0 && setQuestions.length > 1 ? ` - ${t('live.cockpit.question', { number: currentIndex + 1, total: setQuestions.length })}` : ''}</p>
-          <ol aria-label={t('live.cockpit.steps')} className="flex flex-wrap gap-1 text-xs font-semibold">{chips.map((chip) => <li key={chip.label} aria-current={chip.now ? 'step' : undefined} className={`rounded-full border px-2 py-1 ${chip.now ? 'border-brand bg-brand text-white' : chip.on ? 'border-brand text-brand' : 'border-border text-text-muted'}`}>{chip.label}</li>)}</ol>
-        </div>
-        <div className="grid gap-2 rounded-control border border-border bg-surface-elevated p-2">
-          <div className="flex flex-wrap items-stretch gap-3">
-            {primary ? <Button className="min-h-11 flex-[1_1_14rem] text-lg font-bold" disabled={busy || primary.disabled} onClick={primary.run}>{primary.label}</Button>
-              : <p className="flex min-h-11 flex-[1_1_14rem] items-center font-semibold">{relevant && !active ? t('live.ended') : t('live.cockpit.allDone')}</p>}
-            {active && current?.status === 'open' && <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => void act(() => pause.mutateAsync({ p_run_id: current.id, p_paused: !current.paused }))}>{t(current.paused ? 'live.resumeRound' : 'live.pauseRound')}</Button>}
-            {active && current && <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => { if (window.confirm(t('live.confirmResetRun'))) void act(() => resetRun.mutateAsync({ p_run_id: current.id })) }}>{t('live.resetRun')}</Button>}
-          </div>
-          {active && current && <div className="flex flex-wrap gap-2 text-sm">
-            <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => void act(() => visibility.mutateAsync({ p_run_id: current.id, p_show_results: !current.show_results }))}>{t(current.show_results ? 'live.hideResults' : 'live.showResults')}</Button>
-            {(current.type === 'quiz' || current.type === 'static_quiz' || current.type === 'compare') && <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => void act(() => reveal.mutateAsync({ p_run_id: current.id, p_reveal: !current.reveal }))}>{t(current.reveal ? 'live.hideReveal' : current.type === 'compare' ? 'live.revealModels' : 'live.revealCorrect')}</Button>}
-            {current.type === 'quiz' && !formative && <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => void act(() => ranking.mutateAsync({ p_run_id: current.id, p_show: !current.show_ranking }))}>{t(current.show_ranking ? 'live.hideRanking' : 'live.showRanking')}</Button>}
-          </div>}
-          {otherSession && !stale && <p className="text-sm text-text-muted">{t('live.endOtherToStart')}</p>}
-          {next && current && <p className="text-sm text-text-muted">{t('live.cockpit.after', { title: nextTitle })}</p>}
-          {message && <p role="alert">{message}</p>}
-          {(!session || stale) && <details className="text-sm">
-            <summary className="cursor-pointer text-text-muted">{t('live.cockpit.accessOptions')} · {t(accessMode === 'both' ? 'live.accessBoth' : accessMode === 'enrolled' ? 'live.accessEnrolled' : 'live.accessGuest')}{askName ? ` · ${t('live.cockpit.nameRequired')}` : ''}</summary>
-            <div className="mt-3 grid gap-3">
-              <fieldset className="grid gap-2"><legend className="mb-1 font-semibold">{t('live.cockpit.whoJoins')}</legend>
-                {(['both', 'enrolled', 'guest'] as const).map((mode) => <label key={mode} className={`flex cursor-pointer items-start gap-3 rounded-control border p-3 ${accessMode === mode ? 'border-brand bg-brand-soft' : 'border-border'}`}>
-                  <input type="radio" name="access-mode" className="mt-1" checked={accessMode === mode} onChange={() => setAccessMode(mode)} />
-                  <span><span className="block font-semibold">{t(mode === 'both' ? 'live.accessBoth' : mode === 'enrolled' ? 'live.accessEnrolled' : 'live.accessGuest')}{mode === 'both' ? ` · ${t('live.cockpit.recommended')}` : ''}</span>
-                    <span className="block text-text-muted">{t(`live.cockpit.accessHelp.${mode}`)}</span></span></label>)}
-              </fieldset>
-              {accessMode !== 'enrolled' && <div className="grid gap-2">
-                <label className="flex items-center gap-2"><input type="checkbox" checked={askName} onChange={(event) => setAskName(event.target.checked)} />{t('live.askName')}</label>
-                <label className="flex items-center gap-2"><input type="checkbox" checked={askCompany} onChange={(event) => setAskCompany(event.target.checked)} />{t('live.askCompany')}</label>
-              </div>}
+        {interactive}
+        {selectedId && <SheetTeachMain lessonId={lessonId} itemId={selectedId} session={active && live ? { id: live.id, code: live.code } : null} />}
+        {selectedId && !blockSheet.isPending && !blockSheet.sheet && <p className="text-sm text-text-muted">{t('dictar.noSheet')}</p>}
+        {projector}
+      </main>
+      <aside aria-label={t('dictar.tools')} className="grid min-h-0 content-start gap-4 lg:overflow-y-auto">
+        {selectedId && <SheetPrivateAside lessonId={lessonId} itemId={selectedId} />}
+        {selected && (selected.notes || selected.resource) && <section className={`${card} grid gap-1`}>
+          <h2 className="font-bold">{t('live.cockpit.notes')}</h2>
+          {selected.resource && <p className="text-sm font-semibold">{selected.resource}</p>}
+          {selected.notes && <p className="whitespace-pre-wrap text-sm">{selected.notes}</p>}
+        </section>}
+        <section aria-label={t('dictar.tools')} className={`${card} grid gap-2`}>
+          <h2 className="font-bold">{t('dictar.tools')}</h2>
+          {current && !openRun && <details className="rounded-control border border-border p-2"><summary className="min-h-11 cursor-pointer content-center font-semibold">{t('live.cockpit.chipResults')}</summary><RunView run={current} participantCount={participants} hideTitle /></details>}
+          {selectedId && <details className="rounded-control border border-border p-2"><summary className="min-h-11 cursor-pointer content-center font-semibold">{t('live.cockpit.tools')}</summary><LiveControlPanel embedded offeringId={offeringId} lessonId={lessonId} launchPlanItemId={selectedId} /></details>}
+          {active && <details className="rounded-control border border-border p-2"><summary className="min-h-11 cursor-pointer content-center font-semibold text-text-muted">{t('dictar.more')}</summary>
+            <div className="mt-2 grid gap-2">
+              {current && <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => { if (window.confirm(t('live.confirmResetRun'))) void act(() => resetRun.mutateAsync({ p_run_id: current.id })) }}>{t('live.resetRun')}</Button>}
+              <Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => { if (window.confirm(t('live.confirmResetAll'))) void act(() => resetAll.mutateAsync({ p_session_id: live!.id })) }}>{t('live.resetAll')}</Button>
             </div>
           </details>}
-        </div>
-        {current && !openRun && <details className="rounded-control border border-border p-2"><summary className="min-h-11 cursor-pointer font-semibold">{t('live.cockpit.chipResults')}</summary><RunView run={current} participantCount={participants} hideTitle /></details>}
-        {selectedId && <details className="rounded-control border border-border p-2"><summary className="min-h-11 cursor-pointer font-semibold">{t('sheet.cockpitTitle')}</summary><SheetPanel lessonId={lessonId} itemId={selectedId} session={active && live ? { id: live.id, code: live.code } : null} /></details>}
-        {selectedId && <details className="rounded-control border border-border p-2"><summary className="min-h-11 cursor-pointer font-semibold">{t('live.cockpit.tools')}</summary><LiveControlPanel embedded offeringId={offeringId} lessonId={lessonId} launchPlanItemId={selectedId} /></details>}
-        {active && <details className="rounded-control border border-border p-2"><summary className="min-h-11 cursor-pointer font-semibold">{t('live.cockpit.resetOptions')}</summary><Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => { if (window.confirm(t('live.confirmResetAll'))) void act(() => resetAll.mutateAsync({ p_session_id: live!.id })) }}>{t('live.resetAll')}</Button></details>}
-      </div>
-    </main>}
+        </section>
+      </aside>
+    </div>}
   </div>
 }
 

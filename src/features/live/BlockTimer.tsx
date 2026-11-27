@@ -4,8 +4,14 @@ import { Button } from '@/components/ui'
 import { allowedActions, elapsedSeconds, formatClock, type BlockAction } from './block-state'
 import { useSessionBlocks, useSetBlockState } from './live-teacher-api'
 
-/** Estado y cronómetro persistente del bloque seleccionado. El tiempo se guarda en el servidor. */
-export function BlockTimer({ sessionId, itemId, plannedMinutes }: { sessionId: string; itemId: string; plannedMinutes: number | null }) {
+/**
+ * Estado y cronómetro persistente del bloque seleccionado (el tiempo vive en el servidor).
+ * Con `next`, «Terminar» se convierte en «Terminar y pasar al siguiente»: cierra este bloque, inicia el siguiente y lo selecciona.
+ */
+export function BlockTimer({ sessionId, itemId, plannedMinutes, next, onAdvance }: {
+  sessionId: string; itemId: string; plannedMinutes: number | null
+  next?: { id: string; title: string } | null; onAdvance?: (id: string) => void
+}) {
   const { t } = useTranslation()
   const blocks = useSessionBlocks(sessionId)
   const change = useSetBlockState(sessionId)
@@ -22,18 +28,39 @@ export function BlockTimer({ sessionId, itemId, plannedMinutes }: { sessionId: s
   const seconds = elapsedSeconds(entry, running ? Math.max(now, blocks.data?.receivedAt ?? now) : now, offset)
   const planned = plannedMinutes && plannedMinutes > 0 ? plannedMinutes * 60 : null
   const over = planned !== null && seconds > planned
+  const percent = planned ? Math.min(100, Math.round(seconds * 100 / planned)) : 0
   async function run(action: BlockAction) {
     setError(false)
     try { await change.mutateAsync({ itemId, action }) } catch { setError(true) }
   }
-  const actions = allowedActions(entry?.state)
-  return <div className="flex flex-wrap items-center gap-3 rounded-control border border-border bg-surface p-2" role="group" aria-label={t('blockState.title')}>
-    <span className="rounded-full border border-border px-2 py-1 text-xs font-semibold" role="status">{t(`blockState.state.${entry?.state ?? 'pending'}`)}</span>
-    <span role="timer" aria-live="off" className={`text-2xl font-bold tabular-nums ${over ? 'text-error' : ''}`}>{formatClock(seconds)}</span>
-    {planned !== null && <span className="text-sm text-text-muted tabular-nums">
-      {t('blockState.planned', { minutes: plannedMinutes })}{over ? ` · ${t('blockState.over', { time: formatClock(seconds - planned) })}` : ''}</span>}
-    <div className="ml-auto flex flex-wrap gap-2">{actions.map((action) => <Button key={action} variant={action === 'start' || action === 'pause' ? 'primary' : 'secondary'} className="min-h-11"
-      disabled={change.isPending || blocks.isPending} onClick={() => void run(action)}>{t(`blockState.action.${action}${action === 'start' && entry?.state === 'paused' ? 'Resume' : ''}`)}</Button>)}</div>
-    {(error || blocks.isError) && <p role="alert" className="basis-full text-sm text-error">{t('blockState.error')}</p>}
+  async function advance() {
+    if (!next) return
+    setError(false)
+    try {
+      if (entry?.state === 'active' || entry?.state === 'paused') await change.mutateAsync({ itemId, action: 'finish' })
+      await change.mutateAsync({ itemId: next.id, action: 'start' })
+      onAdvance?.(next.id)
+    } catch { setError(true) }
+  }
+  const canAdvance = !!next && (entry?.state === 'active' || entry?.state === 'paused')
+  const actions = allowedActions(entry?.state).filter((action) => !(canAdvance && action === 'finish'))
+  const disabled = change.isPending || blocks.isPending
+  return <div className="grid gap-3" role="group" aria-label={t('blockState.title')}>
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <span className="rounded-full border border-border px-2.5 py-1 text-xs font-bold uppercase tracking-wide" role="status">{t(`blockState.state.${entry?.state ?? 'pending'}`)}</span>
+      <div className="text-right">
+        <span role="timer" aria-live="off" className={`block text-5xl font-extrabold leading-none tabular-nums ${over ? 'text-error' : ''}`}>{formatClock(seconds)}</span>
+        {planned !== null && <span className="text-sm text-text-muted tabular-nums">
+          {t('blockState.planned', { minutes: plannedMinutes })} · {over ? t('blockState.over', { time: formatClock(seconds - planned) }) : t('dictar.remaining', { time: formatClock(planned - seconds) })}</span>}
+      </div>
+    </div>
+    {planned !== null && <div className="h-2 rounded-full bg-border" aria-hidden="true"><div className={`h-2 rounded-full ${over ? 'bg-error' : 'bg-brand'}`} style={{ width: `${percent}%` }} /></div>}
+    <div className="flex flex-wrap items-center gap-2">
+      {actions.map((action) => <Button key={action} variant={!canAdvance && (action === 'start' || action === 'pause') ? 'primary' : 'secondary'} className="min-h-11"
+        disabled={disabled} onClick={() => void run(action)}>{t(`blockState.action.${action}${action === 'start' && entry?.state === 'paused' ? 'Resume' : ''}`)}</Button>)}
+      {canAdvance && <Button className="min-h-11 font-bold" disabled={disabled} onClick={() => void advance()}>{t('dictar.completeNext')}</Button>}
+      <span className="min-w-0 flex-1 text-right text-sm text-text-muted">{next ? t('dictar.nextUp', { title: next.title }) : t('dictar.lastBlock')}</span>
+    </div>
+    {(error || blocks.isError) && <p role="alert" className="text-sm text-error">{t('blockState.error')}</p>}
   </div>
 }
