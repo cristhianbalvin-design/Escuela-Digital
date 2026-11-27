@@ -1,3 +1,4 @@
+import type { BlockAction } from './block-state'
 import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import i18n from '@/lib/i18n'
@@ -173,6 +174,7 @@ export function useLiveSessions(offeringId: string, lessonId: string) {
 type ControlMutation = Exclude<LiveRpcName,
   'get_live_activities' | 'save_live_activities' | 'get_live_control_state' | 'get_offering_live_session' | 'list_live_sessions' |
   'get_live_sets' | 'save_live_set' | 'delete_live_set' |
+  'get_plan_item_sheets' | 'save_plan_item_sheet' | 'publish_plan_item_sheet' | 'get_session_publication' | 'get_live_published_sheet' | 'get_session_blocks' | 'set_session_block' |
   'join_live_session' | 'search_live_roster' | 'get_live_state' |
   'get_live_screen' | 'set_live_screen' | 'get_lesson_presentation' | 'save_lesson_presentation' | 'delete_lesson_presentation' | 'get_slide_notes' | 'save_slide_notes' | 'get_live_notes' | 'save_live_notes' | 'submit_live_response' | 'get_projector_state' | 'get_course_prep_status' | 'get_offering_sessions_status'>
 
@@ -225,5 +227,59 @@ export function useSetLiveScreen(code: string) {
     },
     onError: (_error, input, context) => { if (context?.previous) cache.setQueryData(liveScreenKey(input.p_session_id), context.previous) },
     onSuccess: (screen, input) => { cache.setQueryData(liveScreenKey(input.p_session_id), screen); void ping(code) },
+  })
+}
+
+// Ficha de actividad por bloque: edición (gestores) y publicación a los alumnos de la clase en vivo.
+export const lessonSheetsKey = (lessonId: string) => ['live', 'sheets', lessonId] as const
+export const sessionPublicationKey = (sessionId: string) => ['live', 'publication', sessionId] as const
+export function useLessonSheets(lessonId: string) {
+  return useQuery({
+    queryKey: lessonSheetsKey(lessonId), enabled: !!lessonId && !!supabase,
+    queryFn: () => liveRpc('get_plan_item_sheets', { p_lesson_id: lessonId }),
+  })
+}
+export function useSaveSheet(lessonId: string) {
+  const cache = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { itemId: string; sheet: LiveRpcInput<'save_plan_item_sheet'>['p_sheet'] }) =>
+      liveRpc('save_plan_item_sheet', { p_lesson_id: lessonId, p_item_id: input.itemId, p_sheet: input.sheet }),
+    onSuccess: (saved, input) => {
+      cache.setQueryData<LiveRpcOutput<'get_plan_item_sheets'>>(lessonSheetsKey(lessonId), (old) => {
+        const rest = (old ?? []).filter((sheet) => sheet.item_id !== input.itemId)
+        return saved ? [...rest, saved] : rest
+      })
+    },
+  })
+}
+export function useSessionPublication(sessionId: string | undefined) {
+  return useQuery({
+    queryKey: sessionPublicationKey(sessionId ?? ''), enabled: !!sessionId && !!supabase,
+    queryFn: () => liveRpc('get_session_publication', { p_session_id: sessionId! }),
+    refetchInterval: () => document.hidden ? false : 8000,
+  })
+}
+export function usePublishSheet(sessionId: string, code: string) {
+  const cache = useQueryClient()
+  return useMutation({
+    mutationFn: (itemId: string | null) => liveRpc('publish_plan_item_sheet', { p_session_id: sessionId, p_item_id: itemId }),
+    onSuccess: (result) => { cache.setQueryData(sessionPublicationKey(sessionId), result); void ping(code) },
+  })
+}
+
+// Estado de los bloques de la clase y cronómetro persistente (el tiempo vive en el servidor).
+export const sessionBlocksKey = (sessionId: string) => ['live', 'blocks', sessionId] as const
+export function useSessionBlocks(sessionId: string | undefined) {
+  return useQuery({
+    queryKey: sessionBlocksKey(sessionId ?? ''), enabled: !!sessionId && !!supabase,
+    queryFn: async () => ({ ...(await liveRpc('get_session_blocks', { p_session_id: sessionId! })), receivedAt: Date.now() }),
+    refetchInterval: () => document.hidden ? false : 15000,
+  })
+}
+export function useSetBlockState(sessionId: string) {
+  const cache = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { itemId: string; action: BlockAction }) => liveRpc('set_session_block', { p_session_id: sessionId, p_item_id: input.itemId, p_action: input.action }),
+    onSuccess: (result) => cache.setQueryData(sessionBlocksKey(sessionId), { ...result, receivedAt: Date.now() }),
   })
 }

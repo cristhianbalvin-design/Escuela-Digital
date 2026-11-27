@@ -1,5 +1,7 @@
 import { z } from 'zod'
 import { isLiveCode, opportunityAnswerSchema, templateFieldSchema } from './live-utils'
+import { blockActionSchema, blockStatesOutputSchema } from './block-state'
+import { publicationOutputSchema, publicSheetOutputSchema, sheetInputSchema, sheetOutputSchema } from './sheet-utils'
 
 // La validación que depende de la configuración de una ronda se repite en SQL.
 const uuid = z.uuid()
@@ -135,6 +137,13 @@ export const liveRpcInputSchemas = {
   get_live_notes: lessonId,
   save_live_notes: z.object({ p_lesson_id: uuid, p_notes: z.array(z.object({ target_id: uuid, notes: z.string().max(6000) }).strict()).max(500) }).strict(),
   save_slide_notes: z.object({ p_lesson_id: uuid, p_notes: z.array(z.object({ slide: z.number().int().min(1).max(300), notes: z.string().max(6000) }).strict()).max(300) }).strict(),
+  get_plan_item_sheets: lessonId,
+  save_plan_item_sheet: z.object({ p_lesson_id: uuid, p_item_id: uuid, p_sheet: sheetInputSchema.nullable() }).strict(),
+  publish_plan_item_sheet: z.object({ p_session_id: uuid, p_item_id: uuid.nullable() }).strict(),
+  get_session_publication: sessionId,
+  get_live_published_sheet: z.object({ p_code: code, p_token: token }).strict(),
+  get_session_blocks: sessionId,
+  set_session_block: z.object({ p_session_id: uuid, p_item_id: uuid, p_action: blockActionSchema }).strict(),
 } as const
 
 export type LiveRpcName = keyof typeof liveRpcInputSchemas
@@ -278,6 +287,13 @@ export const liveRpcOutputSchemas = {
   get_live_notes: liveNotesOutput,
   save_live_notes: liveNotesOutput,
   save_slide_notes: slideNotesOutput,
+  get_plan_item_sheets: z.array(sheetOutputSchema),
+  save_plan_item_sheet: sheetOutputSchema.nullable(),
+  publish_plan_item_sheet: publicationOutputSchema,
+  get_session_publication: publicationOutputSchema,
+  get_live_published_sheet: publicSheetOutputSchema.nullable(),
+  get_session_blocks: blockStatesOutputSchema,
+  set_session_block: blockStatesOutputSchema,
 } as const satisfies Record<LiveRpcName, z.ZodType>
 
 export type LiveRpcOutput<K extends LiveRpcName> = z.output<(typeof liveRpcOutputSchemas)[K]>

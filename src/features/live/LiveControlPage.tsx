@@ -9,12 +9,14 @@ import { LiveControlPanel, RunView } from './LiveControlPanel'
 import { useRoundCountdown } from './LiveSpecial'
 import { SessionNav } from './SessionNav'
 import { ScreenControl } from './LivePresentation'
+import { BlockTimer } from './BlockTimer'
+import { SheetPanel } from './SheetPanel'
 import { TeacherNotesAside } from './LiveNotes'
 import { useLessonPresentation } from './presentation'
 import { liveRpc } from './live-api'
 import type { LiveRpcOutput } from './live-contract'
 import {
-  useCloseLiveRun, useCreateLiveSession, useEndLiveSession, useLaunchLiveRun, useLaunchLiveSet, useLiveActivities, useLiveSets, useOfferingLiveSession,
+  useCloseLiveRun, useCreateLiveSession, useEndLiveSession, useLaunchLiveRun, useLaunchLiveSet, useLiveActivities, useLiveSets, useOfferingLiveSession, useSessionBlocks,
   ping, useResetLiveRun, useResetLiveSessionResults, useSetLiveRunPaused, useSetLiveRunRanking, useSetLiveRunReveal, useSetLiveRunVisibility,
 } from './live-teacher-api'
 
@@ -84,6 +86,8 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
   const relativeTime = new Intl.RelativeTimeFormat(i18n.resolvedLanguage, { numeric: 'auto' }).format(
     elapsedMinutes >= 60 ? -Math.floor(elapsedMinutes / 60) : -elapsedMinutes, elapsedMinutes >= 60 ? 'hour' : 'minute')
   const active = live?.status === 'active'
+  const blockStates = useSessionBlocks(active && live ? live.id : undefined)
+  const stateOf = (id: string) => blockStates.data?.blocks.find((entry) => entry.item_id === id)?.state
   const setsQuery = useLiveSets(lessonId)
   const setOrder = new Map((setsQuery.data ?? []).map((set) => [set.id, set.position]))
   const setRank = (id: string | null) => id === null ? Number.MAX_SAFE_INTEGER : setOrder.get(id) ?? Number.MAX_SAFE_INTEGER - 1
@@ -199,6 +203,7 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
             <span aria-hidden="true" className={`size-4 shrink-0 rounded-full border-2 ${isDone ? 'border-brand bg-brand' : isNow ? 'border-brand' : 'border-border'}`} />
             <span className="w-10 shrink-0 text-xs tabular-nums text-text-muted">{block.starts_at?.slice(0, 5) ?? ''}</span>
             <span className={`min-w-0 flex-1 text-sm ${isDone ? 'text-text-muted' : ''} ${isNow ? 'font-semibold' : ''}`}>{block.title}{isDone && <span className="sr-only"> · {t('live.cockpit.done')}</span>}</span>
+            {stateOf(block.id) && <span className="shrink-0 rounded-full border border-border px-1.5 text-xs">{t(`blockState.state.${stateOf(block.id)}`)}</span>}
             {pending > 0 && <span className="shrink-0 rounded-full border border-border px-1.5 text-xs font-semibold">{pending}</span>}
           </button></li>
         })}</ol>
@@ -273,6 +278,7 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
         </div>
       </>}
       <div className="max-h-[30vh] shrink-0 overflow-y-auto">
+        {active && live && selectedId && <div className="mb-2"><BlockTimer key={selectedId} sessionId={live.id} itemId={selectedId} plannedMinutes={selected?.minutes ?? null} /></div>}
         <div className="mb-1 flex flex-wrap items-center gap-2 text-sm">
           <p className="font-semibold text-brand">{selected ? `${t('live.cockpit.now')} - ${selected.title}` : t('live.prepareEmpty')}{currentSet ? ` - ${currentSet.title}` : ''}{current && currentIndex >= 0 && setQuestions.length > 1 ? ` - ${t('live.cockpit.question', { number: currentIndex + 1, total: setQuestions.length })}` : ''}</p>
           <ol aria-label={t('live.cockpit.steps')} className="flex flex-wrap gap-1 text-xs font-semibold">{chips.map((chip) => <li key={chip.label} aria-current={chip.now ? 'step' : undefined} className={`rounded-full border px-2 py-1 ${chip.now ? 'border-brand bg-brand text-white' : chip.on ? 'border-brand text-brand' : 'border-border text-text-muted'}`}>{chip.label}</li>)}</ol>
@@ -309,6 +315,7 @@ function Cockpit({ offeringId, lessonId, initialItem }: { offeringId: string; le
           </details>}
         </div>
         {current && !openRun && <details className="rounded-control border border-border p-2"><summary className="min-h-11 cursor-pointer font-semibold">{t('live.cockpit.chipResults')}</summary><RunView run={current} participantCount={participants} hideTitle /></details>}
+        {selectedId && <details className="rounded-control border border-border p-2"><summary className="min-h-11 cursor-pointer font-semibold">{t('sheet.cockpitTitle')}</summary><SheetPanel lessonId={lessonId} itemId={selectedId} session={active && live ? { id: live.id, code: live.code } : null} /></details>}
         {selectedId && <details className="rounded-control border border-border p-2"><summary className="min-h-11 cursor-pointer font-semibold">{t('live.cockpit.tools')}</summary><LiveControlPanel embedded offeringId={offeringId} lessonId={lessonId} launchPlanItemId={selectedId} /></details>}
         {active && <details className="rounded-control border border-border p-2"><summary className="min-h-11 cursor-pointer font-semibold">{t('live.cockpit.resetOptions')}</summary><Button variant="secondary" className="min-h-11" disabled={busy} onClick={() => { if (window.confirm(t('live.confirmResetAll'))) void act(() => resetAll.mutateAsync({ p_session_id: live!.id })) }}>{t('live.resetAll')}</Button></details>}
       </div>

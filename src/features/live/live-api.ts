@@ -77,3 +77,16 @@ export function useOfferingSessionsStatus(offeringId: string | undefined) {
     queryFn: () => liveRpc('get_offering_sessions_status', { p_offering_id: offeringId! }),
   })
 }
+
+/** Ficha publicada por el docente: solo su parte pública. Se actualiza con el mismo aviso en vivo de la clase. */
+export function useLivePublishedSheet(code: string, token: string | null) {
+  const key = ['live', 'student-sheet', code, token] as const
+  useLiveRefresh(code, key)
+  return useQuery({
+    queryKey: key,
+    queryFn: () => liveRpc('get_live_published_sheet', { p_code: code, p_token: token! }),
+    enabled: !!token && !!supabase,
+    refetchInterval: () => document.hidden ? false : 5000,
+    retry: false,
+  })
+}

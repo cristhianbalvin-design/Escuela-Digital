@@ -4,6 +4,7 @@ import { Button } from '@/components/ui'
 import { openPlanFile, useLessonPlan, usePlanFiles, useSavePlan } from './planning-api'
 import { emptyResource, itemSchema, kinds, type PlanFile, type PlanItem } from './planning-utils'
 import { PlanImport } from './PlanImport'
+import { SheetEditor } from '@/features/live/SheetEditor'
 
 type Kind = typeof kinds[number]
 export const kindColors: Record<Kind, string> = {
@@ -153,6 +154,7 @@ export function ScriptEditor({ lessonId, tenantId, editable }: { lessonId: strin
           <input className={field} maxLength={120} value={current.resource ?? ''} disabled={!editable} onChange={(event) => update({ resource: event.target.value || null })} /></label>
         <label className="grid gap-1 text-sm font-semibold">{t('script.notes')}
           <textarea className={`${field} min-h-28 py-2`} maxLength={5000} value={current.notes} disabled={!editable} onChange={(event) => update({ notes: event.target.value })} /></label>
+        <SheetEditor key={current.id} lessonId={lessonId} itemId={current.id} editable={editable} ready={status === 'idle' || status === 'saved'} />
         {editable && <div className="flex flex-wrap gap-2 border-t border-border pt-3">
           <Button variant="secondary" aria-label={t('planning.up')} disabled={index === 0} onClick={() => move(index, index - 1)}>↑</Button>
           <Button variant="secondary" aria-label={t('planning.down')} disabled={index === list.length - 1} onClick={() => move(index, index + 1)}>↓</Button>

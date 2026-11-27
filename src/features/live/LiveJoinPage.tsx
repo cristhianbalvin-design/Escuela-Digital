@@ -12,6 +12,7 @@ import { OpportunityRound } from './LiveOpportunity'
 import { CompareRound, QuizRound } from './LiveSpecial'
 import { StaticQuizRound, TemplateRound } from './LiveTemplate'
 import { SafeMarkdown } from './SafeMarkdown'
+import { StudentSheet } from './StudentSheet'
 import type { LiveRpcOutput } from './live-contract'
 
 const storageKey = (code: string) => `live:participant:${code}`
@@ -239,6 +240,7 @@ export function LiveJoinPage() {
       </form></Card>}
     {(joining || state.isLoading) && !data && <Card role="status">{t('live.loading')}</Card>}
     {data?.session.status === 'ended' && <Card><h2 className="text-2xl font-bold">{t('live.ended')}</h2></Card>}
+    {token && data?.session.status === 'active' && <StudentSheet code={code} token={token} />}
     {data?.session.status === 'active' && (!run || (run.status === 'closed' && !run.show_results && !run.reveal && !run.show_ranking && !((run.type === 'compare' || run.type === 'opportunity' || run.type === 'template' || run.type === 'static_quiz') && data.my_response !== null))) && <Card role="status" aria-live="polite">{t('live.waiting')}</Card>}
     {data?.session.status === 'active' && run && (run.status === 'open' || run.show_results || run.reveal || run.show_ranking || ((run.type === 'compare' || run.type === 'opportunity' || run.type === 'template' || run.type === 'static_quiz') && data.my_response !== null)) && <Card className="space-y-6">
       <div>{typeof run.config.context === 'string' && run.config.context && <div className="mb-4 rounded-control border border-border p-3"><SafeMarkdown source={run.config.context} /></div>}<p className="text-sm font-semibold uppercase text-text-muted">{t(`live.types.${run.type}`)}</p>

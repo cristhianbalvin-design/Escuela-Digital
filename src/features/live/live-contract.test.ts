@@ -107,6 +107,10 @@ describe('salidas JSON de las 18 RPC en vivo', () => {
     get_live_state: participantState, submit_live_response: participantState,
     get_projector_state: projectorState, list_live_sessions: [],
     get_live_sets: [], save_live_set: { id, sets: [] }, delete_live_set: [],
+    get_plan_item_sheets: [], save_plan_item_sheet: null, publish_plan_item_sheet: { item_id: null, published_at: null },
+    get_session_publication: { item_id: id, published_at: '2026-11-26T20:00:00.123456+00:00' }, get_live_published_sheet: null,
+    get_session_blocks: { server_now: '2026-11-27T20:00:00.123456+00:00', blocks: [{ item_id: id, state: 'active', elapsed_seconds: 12, running_since: '2026-11-27T20:00:00+00:00' }] },
+    set_session_block: { server_now: '2026-11-27T20:00:00+00:00', blocks: [] },
   }
 
   it.each(Object.keys(examples) as LiveRpcName[])('%s acepta su estructura', (name) => {
@@ -182,5 +186,33 @@ describe('salidas JSON de las 18 RPC en vivo', () => {
     expect(liveRpcOutputSchemas.get_live_state.safeParse({ ...participantState, ranking: [{ ...rank, secret: true }] }).success).toBe(false)
     expect(liveRpcInputSchemas.set_live_run_reveal.safeParse({ p_run_id: id, p_reveal: true }).success).toBe(true)
     expect(liveRpcInputSchemas.set_live_run_ranking.safeParse({ p_run_id: id, p_show: true }).success).toBe(true)
+  })
+})
+
+describe('ficha de actividad', () => {
+  const sheet = { tool_kind: 'external', tool_name: 'Gemini', tool_url: 'https://gemini.google.com/', tool_feature: null, objective: 'Investigar',
+    context_md: '', steps: [{ text: 'Abrir', minutes: 3, prompt_id: 'p1' }], prompts: [{ id: 'p1', title: 'Prompt 1', text: 'OBJETIVO: x' }],
+    resources: [{ name: 'R01', audience: 'students', status: 'pending' }], deliverable_md: '', teacher: { solution: 'Privado' } }
+  const save = (value: unknown) => liveRpcInputSchemas.save_plan_item_sheet.safeParse({ p_lesson_id: id, p_item_id: id, p_sheet: value }).success
+
+  it('acepta una ficha válida y la opción de borrarla', () => {
+    expect(save(sheet)).toBe(true)
+    expect(save(null)).toBe(true)
+  })
+  it('rechaza enlaces que no son https, campos extra y referencias rotas', () => {
+    expect(save({ ...sheet, tool_url: 'http://gemini.google.com/' })).toBe(false)
+    expect(save({ ...sheet, tool_url: 'javascript:alert(1)' })).toBe(false)
+    expect(save({ ...sheet, extra: 1 })).toBe(false)
+    expect(save({ ...sheet, steps: [{ text: 'Abrir', minutes: 3, prompt_id: 'otro' }] })).toBe(false)
+    expect(save({ ...sheet, prompts: [sheet.prompts[0], sheet.prompts[0]] })).toBe(false)
+    expect(save({ ...sheet, teacher: { secreto: 'x' } })).toBe(false)
+  })
+  it('la lectura del alumno rechaza cualquier parte privada', () => {
+    const publicSheet = { item_id: id, title: 'Bloque', minutes: 20, published_at: '2026-11-26T20:00:00+00:00', tool_kind: 'external', tool_name: 'Gemini',
+      tool_url: 'https://gemini.google.com/', tool_feature: null, objective: '', context_md: '', steps: [], prompts: [], resources: [], deliverable_md: '' }
+    expect(liveRpcOutputSchemas.get_live_published_sheet.safeParse(publicSheet).success).toBe(true)
+    expect(liveRpcOutputSchemas.get_live_published_sheet.safeParse({ ...publicSheet, teacher: { solution: 'x' } }).success).toBe(false)
+    expect(liveRpcOutputSchemas.get_live_published_sheet.safeParse({ ...publicSheet, resources: [{ name: 'Solo docente', audience: 'teacher', status: 'pending' }] }).success).toBe(false)
+    expect(liveRpcInputSchemas.get_live_published_sheet.safeParse({ p_code: code, p_token: token }).success).toBe(true)
   })
 })
