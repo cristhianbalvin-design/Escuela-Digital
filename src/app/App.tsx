@@ -85,14 +85,29 @@ const platformBrand: TenantBranding = {
   timeZone: 'America/Lima',
 }
 
+/** Páginas de la clase en vivo (alumno y proyector): nadie ahí va a pulsar «Actualizar», así que se actualizan solas. */
+const isLiveClassPage = () => /^\/clase\/[^/]+/.test(window.location.pathname)
+
 function PwaNotice() {
   const { t } = useTranslation()
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
-  } = useRegisterSW()
+  } = useRegisterSW({
+    onRegisteredSW(_url, registration) {
+      // En clase se busca una versión nueva cada minuto (y al volver a la pestaña), no solo al cargar.
+      if (!registration || !isLiveClassPage()) return
+      const check = () => { if (!document.hidden) void registration.update().catch(() => undefined) }
+      window.setInterval(check, 60_000)
+      document.addEventListener('visibilitychange', check)
+    },
+  })
+  const autoUpdate = needRefresh && isLiveClassPage()
+  useEffect(() => {
+    if (autoUpdate) void updateServiceWorker(true)
+  }, [autoUpdate, updateServiceWorker])
 
-  if (!needRefresh) return null
+  if (!needRefresh || autoUpdate) return null
   return (
     <div
       role="status"
