@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SafeMarkdown } from './SafeMarkdown'
-import { allSections, copyText, safeHttps, type SheetInput, type SheetSection } from './sheet-utils'
+import { allSections, copyText, formatBytes, safeHttps, type SheetInput, type SheetSection } from './sheet-utils'
 
-type Shown = Pick<SheetInput, 'tool_kind' | 'tool_name' | 'tool_url' | 'tool_feature' | 'objective' | 'context_md' | 'steps' | 'prompts' | 'resources' | 'deliverable_md'>
+/** Recurso tal como lo muestra la vista: el docente ve la ruta completa, el alumno solo nombre y tamaño (`idx` para pedirlo). */
+export type ShownResource = { name: string; audience: 'students' | 'teacher'; status: 'pending' | 'ready'; idx?: number; file?: { name: string; size: number } }
+type Shown = Omit<Pick<SheetInput, 'tool_kind' | 'tool_name' | 'tool_url' | 'tool_feature' | 'objective' | 'context_md' | 'steps' | 'prompts' | 'resources' | 'deliverable_md'>, 'resources'> & { resources: ShownResource[] }
 
 const linkStyle = 'inline-flex min-h-11 items-center rounded-control bg-brand px-4 font-semibold text-white'
 function CopyPromptButton({ title, text }: { title: string; text: string }) {
@@ -22,10 +24,26 @@ function CopyPromptButton({ title, text }: { title: string; text: string }) {
   </span>
 }
 
+function DownloadButton({ name, run }: { name: string; run: () => Promise<void> }) {
+  const { t } = useTranslation()
+  const [state, setState] = useState<'idle' | 'busy' | 'failed'>('idle')
+  async function click() {
+    setState('busy')
+    try { await run(); setState('idle') } catch { setState('failed') }
+  }
+  return <span className="inline-flex items-center gap-2">
+    <button type="button" disabled={state === 'busy'} onClick={() => void click()} aria-label={t('sheet.downloadAria', { name })}
+      className="min-h-11 rounded-control border border-brand px-3 text-sm font-semibold text-brand hover:bg-brand-soft disabled:opacity-60">{state === 'busy' ? t('sheet.downloading') : t('sheet.download')}</button>
+    <span role="status" aria-live="polite" className="text-sm text-error">{state === 'failed' ? t('sheet.downloadFailed') : ''}</span>
+  </span>
+}
+
 function Empty() { const { t } = useTranslation(); return <p className="text-sm text-text-muted">{t('sheet.notFilled')}</p> }
 
 /** Vista de lectura de la ficha: la usan el docente (por secciones) y el alumno (completa). */
-export function SheetView({ sheet, sections = allSections, showAudience = false }: { sheet: Shown; sections?: SheetSection[]; showAudience?: boolean }) {
+export function SheetView({ sheet, sections = allSections, showAudience = false, onDownload }: {
+  sheet: Shown; sections?: SheetSection[]; showAudience?: boolean; onDownload?: (resource: ShownResource, index: number) => Promise<void>
+}) {
   const { t } = useTranslation()
   const show = (section: SheetSection) => sections.includes(section)
   const url = safeHttps(sheet.tool_url)
@@ -64,8 +82,10 @@ export function SheetView({ sheet, sections = allSections, showAudience = false 
         <span className="font-medium">{resource.name}</span>
         <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${resource.status === 'ready' ? 'bg-brand-soft' : 'border border-border'}`}>{t(`sheet.resourceStatus.${resource.status}`)}</span>
         {showAudience && <span className="text-xs text-text-muted">{t(`sheet.audience.${resource.audience}`)}</span>}
+        {resource.file && <span className="text-sm text-text-muted">{resource.file.name} · {formatBytes(resource.file.size)}</span>}
+        {resource.file && onDownload && <DownloadButton name={resource.file.name} run={() => onDownload(resource, resource.idx ?? index)} />}
       </li>)}</ul>}
-      <p className="text-sm text-text-muted">{t('sheet.resourcesNote')}</p>
+      {onDownload && <p className="text-sm text-text-muted">{t('sheet.resourcesNote')}</p>}
     </section>}
     {show('deliverable') && sheet.deliverable_md.trim() !== '' && <section className="grid gap-1"><h4 className="text-sm font-bold uppercase tracking-wide text-text-muted">{t('sheet.deliverable')}</h4><SafeMarkdown source={sheet.deliverable_md} /></section>}
   </div>

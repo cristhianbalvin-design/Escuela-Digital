@@ -13,8 +13,21 @@ export const sheetPromptSchema = z.object({
 export const sheetStepSchema = z.object({
   text: z.string().trim().min(1).max(1000), minutes: z.number().int().min(1).max(240).nullable(), prompt_id: promptId.nullable(),
 }).strict()
+export const maxSheetFileBytes = 26_214_400
+const uuidPart = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+/** Archivo adjunto a un recurso: ruta `<tenant>/<lección>/<bloque>/<uuid>-<nombre>` en el almacén privado. */
+export const sheetFileSchema = z.object({
+  path: z.string().regex(new RegExp(`^${uuidPart}/${uuidPart}/${uuidPart}/[A-Za-z0-9._-]{1,200}$`)),
+  name: z.string().trim().min(1).max(150), size: z.number().int().min(1).max(maxSheetFileBytes),
+}).strict()
 export const sheetResourceSchema = z.object({
   name: z.string().trim().min(1).max(150), audience: z.enum(['students', 'teacher']), status: z.enum(['pending', 'ready']),
+  file: sheetFileSchema.optional(),
+}).strict()
+/** Recurso visto por el alumno: sin la ruta del archivo; `idx` identifica el recurso al pedir la descarga. */
+export const publicResourceSchema = z.object({
+  idx: z.number().int().min(0).max(14), name: z.string().trim().min(1).max(150), audience: z.literal('students'), status: z.enum(['pending', 'ready']),
+  file: z.object({ name: z.string().trim().min(1).max(150), size: z.number().int().min(1).max(maxSheetFileBytes) }).strict().optional(),
 }).strict()
 const teacherText = z.string().max(6000)
 export const sheetTeacherSchema = z.object({
@@ -47,7 +60,7 @@ export const sheetOutputSchema = z.object({
 /** Lo único que recibe el alumno: sin parte privada. Si llegara `teacher`, la lectura falla. */
 export const publicSheetOutputSchema = z.object({
   ...sheetShape,
-  resources: z.array(sheetResourceSchema.extend({ audience: z.literal('students') })).max(15),
+  resources: z.array(publicResourceSchema).max(15),
   item_id: z.uuid(), title: z.string(), minutes: z.number().int().nullable(), published_at: z.iso.datetime({ offset: true }),
 }).strict()
 export const publicationOutputSchema = z.object({ item_id: z.uuid().nullable(), published_at: z.iso.datetime({ offset: true }).nullable() }).strict()
@@ -58,6 +71,8 @@ export type PublicSheet = z.infer<typeof publicSheetOutputSchema>
 export type SheetPrompt = z.infer<typeof sheetPromptSchema>
 export type SheetStep = z.infer<typeof sheetStepSchema>
 export type SheetResource = z.infer<typeof sheetResourceSchema>
+export type SheetFile = z.infer<typeof sheetFileSchema>
+export type PublicResource = z.infer<typeof publicResourceSchema>
 
 export type SheetSection = 'tool' | 'objective' | 'context' | 'steps' | 'prompts' | 'resources' | 'deliverable'
 export const allSections: SheetSection[] = ['tool', 'objective', 'context', 'steps', 'prompts', 'resources', 'deliverable']
@@ -121,4 +136,30 @@ export async function copyText(text: string): Promise<boolean> {
       return ok
     } catch { return false }
   }
+}
+
+/** Tipos admitidos para los recursos, con el tipo MIME que acepta el almacén. */
+export const sheetFileTypes: Record<string, string> = {
+  pdf: 'application/pdf',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  md: 'text/markdown', txt: 'text/plain',
+}
+export const sheetFileAccept = Object.keys(sheetFileTypes).map((extension) => `.${extension}`).join(',')
+export function checkSheetFile(name: string, size: number): 'ok' | 'type' | 'size' | 'empty' {
+  const extension = name.split('.').pop()?.toLowerCase() ?? ''
+  if (!Object.hasOwn(sheetFileTypes, extension)) return 'type'
+  if (size <= 0) return 'empty'
+  return size > maxSheetFileBytes ? 'size' : 'ok'
+}
+/** Nombre seguro para la ruta de almacenamiento: sin acentos, sin espacios ni símbolos, con la extensión intacta. */
+export function safeFileName(name: string): string {
+  const clean = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9._-]/g, '_').replace(/^\.+/, '')
+  return (clean.length > 120 ? clean.slice(-120) : clean) || 'archivo'
+}
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }

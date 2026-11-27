@@ -110,6 +110,7 @@ describe('salidas JSON de las 18 RPC en vivo', () => {
     get_plan_item_sheets: [], save_plan_item_sheet: null, publish_plan_item_sheet: { item_id: null, published_at: null },
     get_session_publication: { item_id: id, published_at: '2026-11-26T20:00:00.123456+00:00' }, get_live_published_sheet: null,
     get_session_blocks: { server_now: '2026-11-27T20:00:00.123456+00:00', blocks: [{ item_id: id, state: 'active', elapsed_seconds: 12, running_since: '2026-11-27T20:00:00+00:00' }] },
+    get_sheet_upload_prefix: `${id}/${id}/${id}/`,
     set_session_block: { server_now: '2026-11-27T20:00:00+00:00', blocks: [] },
   }
 

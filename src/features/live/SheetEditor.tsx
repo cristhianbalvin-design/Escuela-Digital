@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui'
 import { useLessonSheets, useSaveSheet } from './live-teacher-api'
+import { downloadSheetFile, removeSheetFile, SheetFileError, uploadSheetFile } from './sheet-files'
 import {
-  cleanSheet, isEmptySheet, newPromptId, sheetFromOutput, sheetInputSchema, teacherKeys, toolKinds,
+  cleanSheet, formatBytes, isEmptySheet, newPromptId, sheetFileAccept, sheetFromOutput, sheetInputSchema, teacherKeys, toolKinds,
   type SheetInput, type SheetResource, type SheetStep, type TeacherKey, type ToolKind,
 } from './sheet-utils'
 
@@ -32,6 +33,9 @@ function SheetForm({ lessonId, itemId, editable, ready, initial, hadSheet }: Edi
   const timer = useRef<number | null>(null)
   const queued = useRef<{ payload: SheetInput | null } | null>(null)
   const existed = useRef(hadSheet)
+  const latest = useRef(initial)
+  const [uploading, setUploading] = useState<number | null>(null)
+  const [fileError, setFileError] = useState<{ index: number; reason: string } | null>(null)
 
   useEffect(() => () => { if (timer.current) window.clearTimeout(timer.current) }, [])
 
@@ -48,6 +52,7 @@ function SheetForm({ lessonId, itemId, editable, ready, initial, hadSheet }: Edi
   useEffect(() => { if (ready && queued.current) flush() }, [ready]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function commit(next: SheetInput) {
+    latest.current = next
     setDraft(next)
     if (!editable) return
     if (timer.current) window.clearTimeout(timer.current)
@@ -65,6 +70,26 @@ function SheetForm({ lessonId, itemId, editable, ready, initial, hadSheet }: Edi
   const setTeacher = (key: TeacherKey, value: string) => update({ teacher: { ...draft.teacher, [key]: value } })
   const patchStep = (index: number, change: Partial<SheetStep>) => update({ steps: draft.steps.map((step, i) => i === index ? { ...step, ...change } : step) })
   const patchResource = (index: number, change: Partial<SheetResource>) => update({ resources: draft.resources.map((item, i) => i === index ? { ...item, ...change } : item) })
+  async function attach(index: number, file: File) {
+    setFileError(null)
+    if (!ready) { setFileError({ index, reason: 'needBlock' }); return }
+    setUploading(index)
+    try {
+      const uploaded = await uploadSheetFile(lessonId, itemId, file)
+      const current = latest.current; const previous = current.resources[index]?.file
+      commit({ ...current, resources: current.resources.map((item, i) => i === index
+        ? { ...item, name: item.name.trim() ? item.name : uploaded.name, status: 'ready', file: uploaded } : item) })
+      if (previous) void removeSheetFile(previous.path)
+    } catch (error) { setFileError({ index, reason: error instanceof SheetFileError ? (error.reason === 'download' ? 'upload' : error.reason) : 'upload' }) }
+    finally { setUploading(null) }
+  }
+  function detach(index: number) {
+    const previous = latest.current.resources[index]?.file
+    if (!previous) return
+    const { file: _file, ...rest } = latest.current.resources[index]; void _file
+    commit({ ...latest.current, resources: latest.current.resources.map((item, i) => i === index ? { ...rest, status: 'pending' } : item) })
+    void removeSheetFile(previous.path)
+  }
   const urlInvalid = !!draft.tool_url?.trim() && !/^https:\/\/[^\s<>"']+$/.test(draft.tool_url.trim())
   const statusText = { idle: '', pending: t('script.pending'), saving: t('script.saving'), saved: t('script.saved'), invalid: t('sheet.invalid'), error: t('sheet.saveError'), waiting: t('sheet.waitingBlock') }[status]
   const group = 'grid gap-3 rounded-control border border-border p-3'
@@ -126,12 +151,23 @@ function SheetForm({ lessonId, itemId, editable, ready, initial, hadSheet }: Edi
           <div className="flex flex-wrap gap-2">
             <label className="grid flex-1 gap-1 text-sm">{t('sheet.resourceAudience')}<select className={field} value={resource.audience} disabled={!editable}
               onChange={(e) => patchResource(index, { audience: e.target.value === 'teacher' ? 'teacher' : 'students' })}><option value="students">{t('sheet.audience.students')}</option><option value="teacher">{t('sheet.audience.teacher')}</option></select></label>
-            <label className="grid flex-1 gap-1 text-sm">{t('sheet.resourceState')}<select className={field} value={resource.status} disabled={!editable}
+            <label className="grid flex-1 gap-1 text-sm">{t('sheet.resourceState')}<select className={field} value={resource.status} disabled={!editable || !!resource.file}
               onChange={(e) => patchResource(index, { status: e.target.value === 'ready' ? 'ready' : 'pending' })}><option value="pending">{t('sheet.resourceStatus.pending')}</option><option value="ready">{t('sheet.resourceStatus.ready')}</option></select></label>
           </div>
-          {editable && <Button variant="secondary" className="w-fit" onClick={() => update({ resources: draft.resources.filter((_, i) => i !== index) })}>{t('sheet.removeResource')}</Button>}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="min-w-0 flex-1 break-words text-sm">{resource.file ? `${resource.file.name} · ${formatBytes(resource.file.size)}` : t('sheet.fileNone')}</span>
+            {resource.file && <Button variant="secondary" className="min-h-11" onClick={() => void downloadSheetFile(resource.file!).catch(() => setFileError({ index, reason: 'upload' }))}>{t('sheet.download')}</Button>}
+            {editable && <label className={`inline-flex min-h-11 cursor-pointer items-center rounded-control border border-brand px-3 text-sm font-semibold text-brand focus-within:outline focus-within:outline-2 ${uploading !== null ? 'pointer-events-none opacity-60' : ''}`}>
+              {uploading === index ? t('sheet.fileUploading') : resource.file ? t('sheet.fileReplace') : t('sheet.fileUpload')}
+              <input type="file" className="sr-only" accept={sheetFileAccept} disabled={uploading !== null} aria-label={`${resource.file ? t('sheet.fileReplace') : t('sheet.fileUpload')}: ${resource.name || index + 1}`}
+                onChange={(e) => { const chosen = e.target.files?.[0]; e.target.value = ''; if (chosen) void attach(index, chosen) }} /></label>}
+            {editable && resource.file && <Button variant="secondary" className="min-h-11" disabled={uploading !== null} onClick={() => detach(index)}>{t('sheet.fileRemove')}</Button>}
+          </div>
+          {fileError?.index === index && <p role="alert" className="text-sm text-error">{t(`sheet.fileError.${fileError.reason}`)}</p>}
+          {editable && <Button variant="secondary" className="w-fit" disabled={uploading !== null} onClick={() => { const gone = resource.file; update({ resources: draft.resources.filter((_, i) => i !== index) }); if (gone) void removeSheetFile(gone.path) }}>{t('sheet.removeResource')}</Button>}
         </div>)}
-        {editable && <Button variant="secondary" className="w-fit" disabled={draft.resources.length >= 15} onClick={() => update({ resources: [...draft.resources, { name: '', audience: 'students', status: 'pending' }] })}>+ {t('sheet.addResource')}</Button>}
+        {editable && <p className="text-xs text-text-muted">{t('sheet.fileHint')}</p>}
+        {editable && <Button variant="secondary" className="w-fit" disabled={draft.resources.length >= 15 || uploading !== null} onClick={() => update({ resources: [...draft.resources, { name: '', audience: 'students', status: 'pending' }] })}>+ {t('sheet.addResource')}</Button>}
       </div>
 
       <label className="grid gap-1 text-sm font-semibold">{t('sheet.deliverable')}<textarea className={`${area} min-h-20`} maxLength={3000} value={draft.deliverable_md} disabled={!editable} onChange={(e) => update({ deliverable_md: e.target.value })} /></label>

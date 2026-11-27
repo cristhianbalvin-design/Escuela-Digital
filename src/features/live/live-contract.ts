@@ -143,6 +143,7 @@ export const liveRpcInputSchemas = {
   get_session_publication: sessionId,
   get_live_published_sheet: z.object({ p_code: code, p_token: token }).strict(),
   get_session_blocks: sessionId,
+  get_sheet_upload_prefix: z.object({ p_lesson_id: uuid, p_item_id: uuid }).strict(),
   set_session_block: z.object({ p_session_id: uuid, p_item_id: uuid, p_action: blockActionSchema }).strict(),
 } as const
 
@@ -293,6 +294,7 @@ export const liveRpcOutputSchemas = {
   get_session_publication: publicationOutputSchema,
   get_live_published_sheet: publicSheetOutputSchema.nullable(),
   get_session_blocks: blockStatesOutputSchema,
+  get_sheet_upload_prefix: z.string().regex(/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\/$/),
   set_session_block: blockStatesOutputSchema,
 } as const satisfies Record<LiveRpcName, z.ZodType>
 

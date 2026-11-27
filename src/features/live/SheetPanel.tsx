@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui'
 import { SafeMarkdown } from './SafeMarkdown'
 import { SheetView } from './SheetView'
+import { downloadSheetFile } from './sheet-files'
 import type { SheetOutput, SheetSection, TeacherKey } from './sheet-utils'
 import { useLessonSheets, usePublishSheet, useSessionPublication } from './live-teacher-api'
 
@@ -58,7 +59,8 @@ export function SheetPanel({ lessonId, itemId, session }: { lessonId: string; it
     <div role="tabpanel" id="sheet-tabpanel" aria-labelledby={`sheet-tab-${tab}`} className="max-h-[50vh] overflow-y-auto">
       {tab === 'run' && <SheetView sheet={sheet} sections={runSections} />}
       {tab === 'prompts' && <SheetView sheet={sheet} sections={['prompts']} />}
-      {tab === 'resources' && <SheetView sheet={sheet} sections={['resources']} showAudience />}
+      {tab === 'resources' && <SheetView sheet={sheet} sections={['resources']} showAudience
+        onDownload={async (_resource, index) => { const file = sheet.resources[index]?.file; if (file) await downloadSheetFile(file) }} />}
       {(tab === 'script' || tab === 'expected' || tab === 'contingency') && <PrivateText sheet={sheet} keys={tabGroups[tab]} />}
     </div>
   </div>
