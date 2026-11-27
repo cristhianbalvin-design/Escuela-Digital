@@ -86,7 +86,9 @@ function SheetForm({ lessonId, itemId, editable, ready, initial, hadSheet }: Edi
   function detach(index: number) {
     const previous = latest.current.resources[index]?.file
     if (!previous) return
-    const { file: _file, ...rest } = latest.current.resources[index]; void _file
+    const target = latest.current.resources[index]
+    if (!target) return
+    const { file: _file, ...rest } = target; void _file
     commit({ ...latest.current, resources: latest.current.resources.map((item, i) => i === index ? { ...rest, status: 'pending' } : item) })
     void removeSheetFile(previous.path)
   }

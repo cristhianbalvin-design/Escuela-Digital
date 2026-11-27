@@ -1393,7 +1393,7 @@ export const resources = {
         toolName: 'Tool name', toolUrl: 'Link (https://)', toolFeature: 'Specific feature', urlInvalid: 'The link must start with https://',
         studentPart: 'What students see', studentPartHint: 'Shown only when you publish the block during class.', stepN: 'Step {{number}}', stepMinutes: 'Minutes', stepPrompt: 'Step prompt', noPrompt: 'No prompt',
         promptN: 'Prompt {{number}}', removeStep: 'Remove step', addStep: 'Add step', promptTitle: 'Prompt {{number}} title', promptText: 'Full prompt text', removePrompt: 'Remove prompt', addPrompt: 'Add prompt',
-        resourcesEditHint: 'Resources for this activity. Upload each resource's file: it becomes “Ready” automatically.', resourceName: 'Resource name', resourceAudience: 'Who sees it', resourceState: 'Status', removeResource: 'Remove resource', addResource: 'Add resource',
+        resourcesEditHint: 'Resources for this activity. Upload the file of each resource: it becomes “Ready” automatically.', resourceName: 'Resource name', resourceAudience: 'Who sees it', resourceState: 'Status', removeResource: 'Remove resource', addResource: 'Add resource',
         teacherPart: 'Teacher only (private)', teacherPartHint: 'Preparation, script, solution, rubric, mistakes and contingencies. Not published.',
       },
       sets: {
